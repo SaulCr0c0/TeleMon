@@ -1,0 +1,17 @@
+# Stack de TeleMon. Cada servicio se agrega en su rama y sprint correspondiente:
+#   broker     -> Eclipse Mosquitto (Sprint 1) / broker propio (Sprint 2), puerto 1883
+#   nodered    -> backend Node-RED (Sprint 2), puerto interno 1880
+#   postgres   -> PostgreSQL 17 (Sprint 2), puerto interno 5432, volumen postgres_datos
+#   proxy_web  -> Nginx (Sprint 3), puertos 80 y 443
+# Solo se publican al exterior los puertos 1883, 80 y 443.
+
+name: telemon
+
+services: {}
+
+networks:
+  red_telematica:
+    driver: bridge
+
+volumes:
+  postgres_datos:
