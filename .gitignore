@@ -1,0 +1,26 @@
+# Variables de entorno con contraseñas reales
+.env
+
+# PlatformIO / firmware
+.pio/
+.vscode/
+firmware/**/secrets.h
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Datos generados por los contenedores
+mosquitto/data/
+mosquitto/log/
+mosquitto/config/passwd
+nodered/data/node_modules/
+postgres_datos/
+
+# Sistema operativo y editores
+.DS_Store
+Thumbs.db
+*.swp
+*.log
