@@ -7,7 +7,23 @@
 
 name: telemon
 
-services: {}
+services:
+  broker:
+    image: eclipse-mosquitto:2
+    container_name: broker
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/mosquitto/config/entrypoint.sh"]
+    environment:
+      MQTT_USER_ESP32: ${MQTT_USER_ESP32}
+      MQTT_PASS_ESP32: ${MQTT_PASS_ESP32}
+      MQTT_USER_NODERED: ${MQTT_USER_NODERED}
+      MQTT_PASS_NODERED: ${MQTT_PASS_NODERED}
+    ports:
+      - "${MQTT_PORT:-1883}:1883"
+    volumes:
+      - ./mosquitto/config:/mosquitto/config:ro
+    networks:
+      - red_telematica
 
 networks:
   red_telematica:
