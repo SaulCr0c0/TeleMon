@@ -49,12 +49,15 @@ que se compara experimentalmente con **Eclipse Mosquitto**.
 
 ## Cronograma
 
-| Sprint | Fechas | Meta |
-|---|---|---|
-| 1 | 06/10 – 13/10/2026 | ESP32 con sensores publicando a Mosquitto |
-| 2 | 14/10 – 27/10/2026 | Broker propio, base de datos, API y login |
-| 3 | 28/10 – 10/11/2026 | Nube, dominio, dashboard, pruebas y documentación |
-| — | 11/11 – 15/11/2026 | Revisión final y entrega (15/11, 23:59) |
+| Sprint | Fechas | Meta | Responsables |
+|---|---|---|---|
+| 1 | 06/10 – 13/10/2026 | ESP32 con sensores publicando a Mosquitto (HU-01 a HU-05) | Mantilla, Garcia, Siles |
+| 2 | 14/10 – 27/10/2026 | Broker propio, base de datos, API, login y dashboard base (HU-06, HU-08 a HU-12, HU-18) | Siles, Serna, Garnica, Bermudez |
+| 3 | 28/10 – 10/11/2026 | Nube, dominio, filtros y alertas, pruebas y documentación (HU-07, HU-13 a HU-17) | Cordova, Bermudez, Garcia, Siles, todos |
+| — | 11/11 – 15/11/2026 | Revisión final y entrega (15/11, 23:59) | Todos |
+
+Tareas de preparación en el Sprint 2: Cordova deja lista la máquina virtual en Oracle Cloud
+con Docker, y Garcia prepara el script de pruebas de carga (10, 50, 100 y 500 clientes MQTT).
 
 ## Forma de trabajo
 
