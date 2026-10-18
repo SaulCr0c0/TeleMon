@@ -39,9 +39,11 @@ export default function BarraLateral({ grupos, usuario, alCerrarSesion }) {
     <aside className={estilos.barra} aria-label="Navegación principal">
       <Logo className={estilos.logo} />
 
-      {grupos.map((g) => (
+      {grupos.map((g, i) => (
         <div key={g.etiqueta}>
-          {g.titulo && <div className={estilos.titulo}>{g.titulo}</div>}
+          {g.titulo && (
+            <div className={i === 0 ? estilos.tituloPrimero : estilos.titulo}>{g.titulo}</div>
+          )}
           <nav aria-label={g.etiqueta} className={estilos.lista}>
             {g.enlaces.map((e) => (
               <Enlace key={e.a} {...e} />

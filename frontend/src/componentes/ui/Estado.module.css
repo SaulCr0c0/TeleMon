@@ -43,3 +43,41 @@
 .avisoPunto .marca {
   background: var(--aviso-punto);
 }
+.neutro {
+  color: var(--texto-2);
+}
+.neutro .marca {
+  border: 2px solid var(--borde-campo);
+}
+
+.cuadro {
+  color: var(--texto-2);
+}
+.cuadro .marca {
+  border-radius: 2px;
+  background: var(--texto-suave);
+}
+
+.romboVacio {
+  color: var(--texto-suave);
+}
+.romboVacio .marca {
+  border-radius: 2px;
+  border: 2px solid var(--texto-suave);
+  transform: rotate(45deg);
+}
+
+.sinMarca {
+  color: var(--texto-suave);
+}
+.sinMarca .marca {
+  display: none;
+}
+
+.error {
+  color: var(--error);
+}
+.error .marca {
+  border-radius: 1px;
+  background: var(--error);
+}
