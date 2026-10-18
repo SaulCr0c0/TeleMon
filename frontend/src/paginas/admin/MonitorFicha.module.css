@@ -1,0 +1,297 @@
+.encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.textos {
+  min-width: 0;
+}
+
+.titulo {
+  margin: 0 0 6px;
+  font-family: var(--fuente-mono);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.bajada {
+  font-size: 15px;
+  color: var(--texto-suave);
+}
+
+.codigo {
+  font-family: var(--fuente-mono);
+  color: var(--texto);
+}
+
+.pastilla {
+  display: inline-flex;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.columnas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.principal {
+  flex: 2 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.lateral {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tarjetaLista {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra);
+  overflow: hidden;
+}
+
+.subtitulo {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.subtituloConTexto {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.subtituloLista {
+  padding: 20px 24px 8px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.tecnico {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px 24px;
+  font-size: 14px;
+}
+
+.tecnico dt {
+  color: var(--texto-suave);
+  margin-bottom: 4px;
+}
+
+.tecnico dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.tecnico dd > span {
+  font-size: 14px;
+  color: var(--texto);
+}
+
+.detalle {
+  margin-top: 2px;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--texto-suave);
+}
+.tecnico .detalle {
+  font-weight: 400;
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.sensor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding: 14px 24px;
+  border-top: 1px solid var(--borde-fila);
+  font-size: 14px;
+}
+
+.sensorNombre {
+  font-family: var(--fuente-mono);
+  font-weight: 500;
+}
+
+.evento {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 20px;
+  padding: 12px 24px;
+  border-top: 1px solid var(--borde-fila);
+  font-size: 14px;
+}
+
+.eventoFecha {
+  flex: 0 0 120px;
+  font-family: var(--fuente-mono);
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.eventoTexto {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+
+.fila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.campoR0 {
+  flex: 0 1 220px;
+}
+
+.campoNota {
+  flex: 1 1 320px;
+}
+
+.botonFila {
+  font-size: 14px;
+}
+
+.botonNota {
+  font-weight: 500;
+}
+
+.asignacion {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 10px 20px;
+  font-size: 14px;
+}
+
+.asignacion dt {
+  color: var(--texto-suave);
+}
+
+.asignacion dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.reservar {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inicio {
+  align-self: flex-start;
+}
+
+.botones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.confirmar {
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.confirmarPeligro {
+  background: var(--error-fondo);
+  border: 1px solid var(--error-borde);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.retirar {
+  min-height: var(--alto-control);
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radio);
+  background: var(--error);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.retirar:hover {
+  background: var(--error-texto);
+}
+
+.texto {
+  font-size: 14px;
+}
+
+.textoSuave {
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+
+.mensaje {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ok);
+}
+
+.error {
+  font-size: 13px;
+  color: var(--error);
+}
+
+.vacio {
+  padding: 12px 24px 20px;
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+
+.nota {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
