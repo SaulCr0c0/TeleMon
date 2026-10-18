@@ -1,0 +1,75 @@
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.titulo {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.subtitulo {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--texto-suave);
+}
+
+.reglas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reglas li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.marca {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.pendiente {
+  color: var(--texto-suave);
+}
+.pendiente .marca {
+  border: 2px solid var(--borde-campo);
+}
+
+.cumple {
+  color: var(--ok);
+}
+.cumple .marca {
+  background: var(--ok);
+  color: #ffffff;
+}
+
+@media (max-width: 600px) {
+  .tarjeta {
+    padding: 24px 20px;
+  }
+}
