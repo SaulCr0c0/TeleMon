@@ -45,6 +45,30 @@ services:
     networks:
       - red_telematica
 
+  nodered:
+    build: ./nodered
+    container_name: nodered
+    restart: unless-stopped
+    environment:
+      TZ: America/La_Paz
+      MQTT_USER: ${MQTT_USER_NODERED}
+      MQTT_PASS: ${MQTT_PASS_NODERED}
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "127.0.0.1:1880:1880"
+    volumes:
+      - ./nodered/data:/data
+    depends_on:
+      broker:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - red_telematica
+
 networks:
   red_telematica:
     driver: bridge
