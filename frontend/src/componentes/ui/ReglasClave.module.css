@@ -1,0 +1,44 @@
+.reglas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.reglas li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.marca {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  transition:
+    background 0.15s,
+    border-color 0.15s;
+}
+
+.pendiente {
+  color: var(--texto-suave);
+}
+.pendiente .marca {
+  border: 2px solid var(--borde-campo);
+}
+
+.cumple {
+  color: var(--ok);
+}
+.cumple .marca {
+  background: var(--ok);
+  color: #ffffff;
+}
