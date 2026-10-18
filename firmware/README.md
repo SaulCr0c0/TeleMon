@@ -1,6 +1,6 @@
 # firmware
 
-Código C++ del nodo ESP32 (PlatformIO): lectura de DS18B20, DHT11, HW-611 (BMP280) y MQ-135, validación y publicación MQTT en `telemetria/ambiente` cada 5 s (HU-01 a HU-05).
+Código C++ del nodo ESP32 (PlatformIO): lectura de DS18B20, DHT11, HW-611 (BMP280) y MQ-135, validación y publicación MQTT en `telemetria/<ID>/lecturas` cada 5 s con la hora NTP (HU-01 a HU-05 y HU-29). Versión `1.1.0`.
 
 **Responsable:** Mantilla Villaca, J.
 
@@ -9,7 +9,7 @@ Código C++ del nodo ESP32 (PlatformIO): lectura de DS18B20, DHT11, HW-611 (BMP2
 | Archivo | Qué contiene | ¿Se sube? |
 |---|---|---|
 | `platformio.ini` | Placa, velocidad del monitor y bibliotecas | Sí |
-| `include/config.h` | Pines, intervalo, tema MQTT, rangos válidos, offsets de calibración | Sí |
+| `include/config.h` | Pines, intervalo, MQTT, servidores NTP, versión, rangos válidos, offsets de calibración | Sí |
 | `include/secrets.h.example` | Plantilla de credenciales Wi-Fi y MQTT | Sí |
 | `include/secrets.h` | Credenciales reales | **No** (`.gitignore`) |
 | `src/main.cpp` | Programa principal | Sí |
@@ -44,12 +44,23 @@ Código C++ del nodo ESP32 (PlatformIO): lectura de DS18B20, DHT11, HW-611 (BMP2
 
 ## Funcionamiento
 
-- Cada 5 s lee los 4 sensores y publica en `telemetria/ambiente` con QoS 0:
+- Tema: `telemetria/<ID>/lecturas`, donde `<ID>` es la MAC sin ":" (ej. `F8B3B72BFC24`). El client id MQTT es el mismo `<ID>`: la ACL de Mosquitto (`pattern write telemetria/%c/lecturas`) solo deja publicar a cada monitor en su propio tema.
+- Cada 5 s lee los 4 sensores y publica con QoS 0 y sin retención:
   ```json
-  {"mac":"AA:BB:CC:DD:EE:FF","temperatura":22.4,"humedad":55.0,"presion":750.3,"calidad_aire":1.2}
+  {"mac":"F8:B3:B7:2B:FC:24","ts":1760736000123,"uptime":3600,"temperatura":22.4,"humedad":55.0,"presion":750.3,"mq135_v":1.234,"rssi":-61,"fw":"1.1.0"}
   ```
+
+  | Campo | Qué es |
+  |---|---|
+  | `ts` | Hora en ms UTC (NTP), tomada justo antes de publicar; `null` si aún no hay hora |
+  | `uptime` | Segundos desde el arranque |
+  | `mq135_v` | Voltaje del MQ-135 con 3 decimales; `null` durante los 3 min de precalentamiento |
+  | `rssi` | Señal Wi-Fi en dBm |
+  | `fw` | Versión del firmware |
+
+- **Hora (HU-29):** al conectarse al Wi-Fi sincroniza por NTP con `pool.ntp.org` y `time.google.com`, y se resincroniza solo cada hora. El backend calcula la latencia como hora de llegada menos `ts`.
 - **Validación (HU-04):** si un sensor falla (NaN, −127 °C del DS18B20, BMP280 ausente) o el valor está fuera de los rangos de `config.h`, ese campo se envía como `null` y los demás se envían igual.
-- **MQ-135:** promedia 16 lecturas de `analogReadMilliVolts(34)` y multiplica por 1.5 (divisor). Durante los primeros 3 min (precalentamiento) se envía `null`. Calcula `Rs/R0` y lo clasifica en **Bueno / Moderado / Malo** (HU-03), que se muestra por Serial. `CALIDAD_AIRE_ES_RAZON` en `config.h` elige si `calidad_aire` lleva el voltaje (0) o `Rs/R0` (1).
+- **MQ-135:** promedia 16 lecturas de `analogReadMilliVolts(34)` y multiplica por 1.5 (divisor). Durante los primeros 3 min (precalentamiento) se envía `null`. El backend calcula Rs/R0 y el nivel (HU-03) con el R0 de cada monitor; el firmware ya no envía `calidad_aire`. El Rs/R0 que aparece por Serial es solo una referencia para diagnóstico, con el `MQ135_R0` provisional de `config.h`.
 - **Reconexión:** si se cae el Wi-Fi o el broker, reintenta cada 10 s y 5 s respectivamente sin detener las lecturas.
 - **BMP280:** busca el sensor en 0x76 y 0x77; si no responde, reintenta en cada ciclo.
 
@@ -69,6 +80,8 @@ Con esos datos se completan `OFFSET_TEMP`, `OFFSET_HUM`, `OFFSET_PRES` y `MQ135_
 |---|---|
 | `[MQTT] falló, estado -2` | No hay conexión TCP: revisar `MQTT_HOST`, que el broker esté arriba y que el firewall permita el puerto 1883 |
 | `[MQTT] falló, estado 4` o `5` | Usuario o contraseña incorrectos en `secrets.h` |
+| Conecta pero no llega nada a `mosquitto_sub` | El tema no coincide con el client id (la ACL descarta la publicación) |
+| `ts` siempre `null` | Sin salida a Internet o con el puerto 123/UDP (NTP) bloqueado |
 | Presión cerca de 1013 hPa | En Cochabamba debe rondar 750 hPa; revisar el sensor |
 | `[BMP280] no encontrado` | Revisar SDA/SCL y que el módulo esté a 3.3 V |
 | Temperatura siempre `null` | DS18B20 desconectado o sin pull-up en DQ |
