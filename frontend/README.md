@@ -68,7 +68,7 @@ Cada pantalla tiene su `.jsx` y su `.module.css` al lado. Los estilos de un `.mo
 | `useSesion()` | `{ usuario, iniciar(email, clave), registrar(datos), actualizar(cambios), cerrar() }` |
 | `useApi(ruta)` | `{ datos, cargando, error, recargar, reemplazar }`. Con `ruta = null` no pide nada |
 | `api.post(ruta, cuerpo)` | Devuelve el JSON o lanza `ErrorApi` con `estado` (400, 401, 403, 404, 409) y `message` |
-| `useTiempoReal(ubicacionId, alMensaje)` | Abre el WebSocket de la ubicación y reconecta solo; en modo demo avisa cada 5 s |
+| `useTiempoReal(ubicacionId, alMensaje)` | Escucha `/ws/lecturas`, entrega solo los mensajes de esa ubicación y reconecta solo; en modo demo avisa cada 5 s |
 | `useOutletContext()` | Dentro de una pantalla de ubicación devuelve `{ ubicacion }` (nombre, alertas activas) |
 | `<BarraRuta volver={{ a, texto }} migas={[{ a, texto }, { texto }]} />` | Botón «Volver a…» y migas, como en el mockup |
 | `<EncabezadoPagina titulo subtitulo>acciones</EncabezadoPagina>` | Título de 32 px, subtítulo y botones a la derecha |
