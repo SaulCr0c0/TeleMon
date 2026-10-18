@@ -73,17 +73,3 @@ Con esos datos se completan `OFFSET_TEMP`, `OFFSET_HUM`, `OFFSET_PRES` y `MQ135_
 | `[BMP280] no encontrado` | Revisar SDA/SCL y que el módulo esté a 3.3 V |
 | Temperatura siempre `null` | DS18B20 desconectado o sin pull-up en DQ |
 | No aparece `/dev/ttyUSB0` | Agregar el usuario al grupo `dialout` y volver a iniciar sesión |
-
-## Cambios del Sprint 2
-
-| Cambio | Tarea |
-|---|---|
-| Hora NTP (`ts` en ms UTC) y campos `uptime`, `mq135_v`, `rssi` y `fw` en el JSON | [#31](https://github.com/SaulCr0c0/TeleMon/issues/31) |
-| Publicar en `telemetria/<ID>/lecturas`, con `<ID>` = MAC sin ":" y client id = `<ID>` | [#32](https://github.com/SaulCr0c0/TeleMon/issues/32) |
-| Corregir el BMP280 congelado y la humedad del DHT11 | [#33](https://github.com/SaulCr0c0/TeleMon/issues/33) |
-
-JSON del Sprint 2:
-
-```json
-{"mac":"F8:B3:B7:2B:FC:24","ts":1760736000123,"uptime":3600,"temperatura":22.4,"humedad":55.0,"presion":750.3,"mq135_v":1.234,"rssi":-61,"fw":"1.1.0"}
-```

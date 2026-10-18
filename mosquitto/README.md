@@ -78,10 +78,3 @@ Si un sensor falla, su campo se envía como `null`.
 | El ESP32 no conecta | Firewall o IP incorrecta | Verificar que ambos estén en la misma red y que el puerto 1883 esté abierto (`sudo firewall-cmd --add-port=1883/tcp` en Fedora) |
 | `not authorised` en los logs | Usuario o contraseña distintos a los del `.env` | Revisar `.env` y reiniciar con `docker compose restart broker` |
 | Conecta pero no llega nada | Tema distinto o usuario sin permiso | Publicar en `telemetria/ambiente` con el usuario del ESP32 |
-
-## Cambios del Sprint 2
-
-| Cambio | Tarea |
-|---|---|
-| Corregir el bucle de reinicio del `entrypoint.sh` al recrear el contenedor | [#34](https://github.com/SaulCr0c0/TeleMon/issues/34) |
-| Un tema por monitor: el usuario `esp32` solo publica en `telemetria/<su client id>/lecturas` (`pattern write telemetria/%c/lecturas`); `nodered` lee `telemetria/#`. Actualizar `probar.sh` | [#50](https://github.com/SaulCr0c0/TeleMon/issues/50) |
