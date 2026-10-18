@@ -1,0 +1,52 @@
+:root {
+  --oscuro: #0e1714;
+  --oscuro-2: #123a31;
+  --acento-claro: #4fd1b5;
+  --fondo: #f6f6f3;
+  --fondo-suave: #eceee9;
+  --superficie: #ffffff;
+  --seleccion: #f1f8f5;
+
+  --texto: #121a17;
+  --texto-2: #3f4a45;
+  --texto-suave: #5b6761;
+  --texto-sidebar: #b9c4bf;
+  --texto-sidebar-suave: #8fa19a;
+
+  --primario: #0b7a66;
+  --primario-hover: #09604f;
+  --primario-deshabilitado: #9fb3ac;
+  --primario-fondo: #e3f3ee;
+  --primario-borde: #b7d8cf;
+
+  --borde: #e6e8e3;
+  --borde-fila: #eef0ec;
+  --borde-boton: #d3d8d2;
+  --borde-campo: #8a948f;
+
+  --ok: #136b48;
+  --ok-punto: #1f9d6b;
+  --aviso: #8a4310;
+  --aviso-fondo: #fff3e8;
+  --aviso-borde: #f6d5b4;
+  --aviso-chip: #ffe2c6;
+  --aviso-marca: #d9701a;
+  --aviso-punto: #c2571a;
+  --error: #b42318;
+  --error-texto: #8e2a1a;
+  --error-fondo: #fbeeeb;
+  --error-borde: #e8b4aa;
+
+  --fuente: 'Geist', system-ui, sans-serif;
+  --fuente-mono: 'Geist Mono', ui-monospace, monospace;
+
+  --radio: 8px;
+  --radio-tarjeta: 12px;
+  --sombra: 0 1px 2px rgba(14, 23, 20, 0.04);
+  --sombra-hover: 0 2px 10px rgba(14, 23, 20, 0.06);
+  --sombra-segmento: 0 1px 2px rgba(14, 23, 20, 0.12);
+  --ancho-sidebar: 248px;
+  --ancho-contenido: 1080px;
+  --alto-control: 44px;
+  --alto-campo: 48px;
+}
