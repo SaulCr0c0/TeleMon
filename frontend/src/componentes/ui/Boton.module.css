@@ -1,0 +1,65 @@
+.boton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: var(--alto-control);
+  padding: 0 16px;
+  border-radius: var(--radio);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.primario {
+  border: 0;
+  background: var(--primario);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 0 18px;
+}
+.primario:hover {
+  background: var(--primario-hover);
+  color: #ffffff;
+}
+
+.secundario {
+  border: 1px solid var(--borde-boton);
+  background: var(--superficie);
+  color: var(--texto);
+}
+.secundario:hover {
+  background: var(--fondo);
+  color: var(--texto);
+}
+
+.peligro {
+  border: 1px solid var(--error);
+  background: var(--superficie);
+  color: var(--error);
+}
+.peligro:hover {
+  background: var(--error-fondo);
+  color: var(--error);
+}
+
+.grande {
+  min-height: var(--alto-campo);
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.bloque {
+  display: flex;
+  width: 100%;
+}
+
+.deshabilitado,
+.deshabilitado:hover {
+  background: var(--primario-deshabilitado);
+  color: var(--oscuro);
+  border: 0;
+  cursor: not-allowed;
+}

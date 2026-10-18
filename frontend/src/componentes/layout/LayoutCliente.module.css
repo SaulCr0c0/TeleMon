@@ -1,0 +1,27 @@
+.marco {
+  min-height: 100vh;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  background: var(--fondo);
+}
+
+.principal {
+  flex: 999 1 560px;
+  min-width: 0;
+  padding: 24px 40px 64px;
+}
+
+.contenido {
+  max-width: var(--ancho-contenido);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+@media (max-width: 600px) {
+  .principal {
+    padding: 16px 16px 48px;
+  }
+}

@@ -1,3 +1,10 @@
+import EncabezadoPagina from '../../componentes/layout/EncabezadoPagina';
+
 export default function Ubicaciones() {
-  return <h1>Ubicaciones</h1>;
+  return (
+    <EncabezadoPagina
+      titulo="Ubicaciones"
+      subtitulo="Elige una ubicación para ver su panel y gestionar sus monitores."
+    />
+  );
 }

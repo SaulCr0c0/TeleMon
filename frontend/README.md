@@ -51,14 +51,46 @@ frontend/
     │   └── NoEncontrada.jsx
     ├── api/
     │   ├── cliente.js         api.get/post/put/patch/delete contra /api
-    │   └── demo/              datos de ejemplo, un archivo por pantalla
+    │   ├── errores.js         ErrorApi (estado HTTP y mensaje)
+    │   └── demo/              datos de ejemplo: datos.js (compartidos) y un archivo por pantalla
     ├── hooks/                 useApi (pedir datos), useTiempoReal (WebSocket)
-    ├── sesion/                SesionContext (usuario y login), RutaProtegida (rol)
+    ├── sesion/                SesionProvider, useSesion, rutaInicio, RutaProtegida (rol)
     ├── utils/                 formato (números, horas, nivel de aire), validacion
     └── test/setup.js          configuración de las pruebas
 ```
 
 Cada pantalla tiene su `.jsx` y su `.module.css` al lado. Los estilos de un `.module.css` solo afectan a ese componente, así que dos pantallas nunca se pisan.
+
+## Piezas de la base
+
+| Pieza | Uso |
+|---|---|
+| `useSesion()` | `{ usuario, iniciar(email, clave), registrar(datos), actualizar(cambios), cerrar() }` |
+| `useApi(ruta)` | `{ datos, cargando, error, recargar, reemplazar }`. Con `ruta = null` no pide nada |
+| `api.post(ruta, cuerpo)` | Devuelve el JSON o lanza `ErrorApi` con `estado` (400, 401, 403, 404, 409) y `message` |
+| `useTiempoReal(ubicacionId, alMensaje)` | Abre el WebSocket de la ubicación y reconecta solo; en modo demo avisa cada 5 s |
+| `useOutletContext()` | Dentro de una pantalla de ubicación devuelve `{ ubicacion }` (nombre, alertas activas) |
+| `<BarraRuta volver={{ a, texto }} migas={[{ a, texto }, { texto }]} />` | Botón «Volver a…» y migas, como en el mockup |
+| `<EncabezadoPagina titulo subtitulo>acciones</EncabezadoPagina>` | Título de 32 px, subtítulo y botones a la derecha |
+| `<Boton variante="primario|secundario|peligro" tamano="grande" icono a>` | Con `a` es un enlace |
+| `<Campo etiqueta ayuda error opciones mono />` | Input o select con etiqueta, ayuda y error |
+| `<Tarjeta sinRelleno>` | Superficie blanca con borde y sombra |
+| `<Segmentado opciones valor alCambiar etiqueta />` | Pestañas y selectores de periodo |
+| `<Estado tipo="ok|apagado|aviso|avisoPunto">` | Punto o rombo con texto de estado |
+| `<Aviso tipo="exito|aviso|error">` | Banda de mensaje |
+| `Tabla.module.css` | Clases `tabla`, `desplazable`, `mono`, `seleccionada`, `fueraDeRango`, `derecha` |
+| `<GraficaSerie puntos rango etiquetaX decimales descripcion />` | Línea con la franja del rango permitido (Chart.js) |
+| `<MiniGrafica valores />` | Línea pequeña de las tarjetas del panel |
+| `utils/formato`, `utils/validacion` | `conUnidad`, `hora`, `duracion`, `haceCuanto`, `nivelAire`, `esCorreo`, `reglasClave`, `normalizarMac`, `normalizarCodigo`, `rangoValido`, `r0Valido` |
+
+Cuentas del modo demo:
+
+| Correo | Contraseña | Entra a |
+|---|---|---|
+| `direccion@redvallealto.edu.bo` | `telemon123` | Cliente con monitores |
+| `nuevo@coopsanpedro.bo` | `telemon123` | Cliente sin monitores (Bienvenida) |
+| `temporal@viveroandes.com` | `temporal1` | Contraseña temporal (Crear contraseña) |
+| `admin@telemon.bo` | `admin1234` | Proveedor |
 
 ## Rutas y tareas
 

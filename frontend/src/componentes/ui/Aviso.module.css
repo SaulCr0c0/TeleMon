@@ -1,0 +1,35 @@
+.caja {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  border-radius: var(--radio);
+  padding: 12px 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.exito {
+  border: 1px solid var(--primario-borde);
+  background: var(--primario-fondo);
+  color: var(--primario-hover);
+}
+
+.aviso {
+  border: 1px solid var(--aviso-borde);
+  background: var(--aviso-fondo);
+  color: var(--aviso);
+  border-radius: var(--radio-tarjeta);
+  padding: 14px 16px;
+}
+
+.error {
+  border: 1px solid var(--error-borde);
+  background: var(--error-fondo);
+  color: var(--error-texto);
+  padding: 10px 14px;
+}
+
+.icono {
+  flex: none;
+  margin-top: 2px;
+}

@@ -1,0 +1,45 @@
+.estado {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.marca {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+}
+
+.ok {
+  color: var(--ok);
+}
+.ok .marca {
+  background: var(--ok-punto);
+}
+
+.apagado {
+  color: var(--texto-suave);
+}
+.apagado .marca {
+  border: 2px solid var(--borde-campo);
+}
+
+.aviso {
+  color: var(--aviso);
+}
+.aviso .marca {
+  border-radius: 2px;
+  background: var(--aviso-marca);
+  transform: rotate(45deg);
+}
+
+.avisoPunto {
+  color: var(--aviso);
+}
+.avisoPunto .marca {
+  background: var(--aviso-punto);
+}

@@ -1,0 +1,38 @@
+.barra {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.volver {
+  padding: 0 14px 0 10px;
+  gap: 6px;
+}
+
+.migas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-height: 44px;
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+
+.paso {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.enlace {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.actual {
+  color: var(--texto);
+  font-weight: 500;
+}

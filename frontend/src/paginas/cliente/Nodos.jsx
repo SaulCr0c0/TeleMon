@@ -1,3 +1,10 @@
+import EncabezadoPagina from '../../componentes/layout/EncabezadoPagina';
+
 export default function Nodos() {
-  return <h1>Nodos</h1>;
+  return (
+    <EncabezadoPagina
+      titulo="Nodos"
+      subtitulo="Añade monitores con su código y organiza los nodos de esta ubicación."
+    />
+  );
 }
