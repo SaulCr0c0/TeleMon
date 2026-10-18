@@ -1,0 +1,38 @@
+.selector {
+  align-self: flex-start;
+  max-width: 100%;
+}
+
+.tabla {
+  min-width: 920px;
+}
+
+.tabla th:nth-child(1) {
+  width: 21%;
+}
+
+.tabla th:nth-child(2) {
+  width: 16%;
+}
+
+.tabla th:nth-child(3) {
+  width: 29%;
+}
+
+.tabla td:nth-child(n + 4),
+.tabla th:last-child {
+  white-space: nowrap;
+}
+
+.nota {
+  color: var(--texto-suave);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
