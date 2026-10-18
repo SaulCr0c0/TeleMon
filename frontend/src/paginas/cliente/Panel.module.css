@@ -1,0 +1,193 @@
+.enVivo,
+.sinVivo {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.enVivo {
+  background: var(--primario-fondo);
+  color: var(--primario);
+}
+
+.sinVivo {
+  background: var(--fondo-suave);
+  color: var(--texto-suave);
+}
+
+.punto {
+  width: 8px;
+  height: 8px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--primario);
+}
+
+.sinVivo .punto {
+  background: none;
+  border: 2px solid var(--borde-campo);
+}
+
+.seccion {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.subtitulo {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.nota {
+  margin: 0;
+  color: var(--texto-suave);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.vacia {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--texto-2);
+}
+
+.vacia p {
+  margin: 0;
+}
+
+.tabla {
+  min-width: 860px;
+}
+
+.tabla th:first-child {
+  width: 18%;
+}
+
+.tabla td {
+  white-space: nowrap;
+}
+
+.nodo {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.nodo:hover {
+  color: var(--primario);
+}
+
+.nodo:focus-visible {
+  outline: 2px solid var(--primario);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+.indicadores {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 20px;
+}
+
+.indicador {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 190px;
+}
+
+.indicadorAviso {
+  border-color: var(--aviso-borde);
+}
+
+.indicadorTitulo {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--texto-2);
+}
+
+.valor {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 6px;
+  font: 500 32px/1.1 var(--fuente-mono);
+  letter-spacing: -0.02em;
+}
+
+.valor small {
+  font: 400 14px/1.3 var(--fuente);
+  letter-spacing: 0;
+  color: var(--texto-suave);
+}
+
+.razon {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.indicadorEstado {
+  margin: auto 0 0;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.ok {
+  color: var(--ok);
+}
+
+.aviso {
+  color: var(--aviso);
+}
+
+.apagado {
+  color: var(--texto-suave);
+}
+
+@media (max-width: 900px) {
+  .indicadores {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .indicadores {
+    grid-template-columns: 1fr;
+  }
+
+  .indicador {
+    min-height: 0;
+  }
+}
