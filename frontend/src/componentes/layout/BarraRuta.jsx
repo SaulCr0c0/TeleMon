@@ -6,7 +6,7 @@ export default function BarraRuta({ volver, migas }) {
   return (
     <div className={estilos.barra}>
       {volver && (
-        <Boton a={volver.a} icono="atras" className={estilos.volver}>
+        <Boton a={volver.a} icono="atras" className={estilos.volver} onClick={volver.alHacerClic}>
           {volver.texto}
         </Boton>
       )}
@@ -21,7 +21,7 @@ export default function BarraRuta({ volver, migas }) {
                 </span>
               ) : (
                 <>
-                  <Link to={m.a} className={estilos.enlace}>
+                  <Link to={m.a} className={estilos.enlace} onClick={m.alHacerClic}>
                     {m.texto}
                   </Link>
                   <span aria-hidden="true">›</span>

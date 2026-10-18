@@ -5,6 +5,7 @@ export default function Campo({
   etiqueta,
   ayuda,
   error,
+  invalido = false,
   opciones,
   mono = false,
   ancho,
@@ -18,7 +19,7 @@ export default function Campo({
     estilos.control,
     estilos[tamano],
     mono ? estilos.mono : '',
-    error ? estilos.conError : '',
+    error || invalido ? estilos.conError : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -26,7 +27,7 @@ export default function Campo({
     id,
     className: clases,
     style: ancho ? { width: ancho } : undefined,
-    'aria-invalid': error ? true : undefined,
+    'aria-invalid': error || invalido ? true : undefined,
     'aria-describedby': ayuda || error ? idAyuda : undefined,
     ...resto,
   };

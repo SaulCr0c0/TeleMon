@@ -1,0 +1,73 @@
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra);
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.titulo {
+  margin: 0 0 8px;
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.2;
+}
+
+.subtitulo {
+  font-size: 15px;
+  color: var(--texto-suave);
+}
+
+.ok {
+  color: var(--primario);
+}
+
+.terminos {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 44px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--texto-2);
+  cursor: pointer;
+}
+
+.terminos input {
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--primario);
+  flex: none;
+}
+
+.listo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.listoTitulo {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.listoTexto {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--texto-2);
+}
+
+.listoTexto strong {
+  font-weight: 600;
+}
+
+@media (max-width: 600px) {
+  .tarjeta {
+    padding: 24px 20px;
+  }
+}
