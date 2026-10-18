@@ -7,13 +7,14 @@ set -e
 PASSWD=/mosquitto/passwd
 ACL=/mosquitto/acl
 
+rm -f "$PASSWD" "$ACL"
 mosquitto_passwd -b -c "$PASSWD" "$MQTT_USER_ESP32" "$MQTT_PASS_ESP32"
 mosquitto_passwd -b "$PASSWD" "$MQTT_USER_NODERED" "$MQTT_PASS_NODERED"
 
 # El ESP32 solo publica telemetría; Node-RED solo la lee
 cat > "$ACL" <<ACL
 user $MQTT_USER_ESP32
-topic write telemetria/#
+pattern write telemetria/%c/lecturas
 
 user $MQTT_USER_NODERED
 topic read telemetria/#
