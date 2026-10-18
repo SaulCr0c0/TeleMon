@@ -260,6 +260,7 @@ export const CLIENTES = [
     ubicaciones: 2,
     monitores: 4,
     desde: '2026-10-12',
+    ultimoIngreso: '2026-10-17T18:02:00Z',
   },
   {
     id: 2,
@@ -271,6 +272,7 @@ export const CLIENTES = [
     ubicaciones: 1,
     monitores: 1,
     desde: '2026-10-03',
+    ultimoIngreso: '2026-10-16T13:40:00Z',
   },
   {
     id: 3,
@@ -282,6 +284,7 @@ export const CLIENTES = [
     ubicaciones: 0,
     monitores: 0,
     desde: '2026-10-17',
+    ultimoIngreso: null,
   },
   {
     id: 4,
@@ -293,6 +296,7 @@ export const CLIENTES = [
     ubicaciones: 1,
     monitores: 1,
     desde: '2026-09-21',
+    ultimoIngreso: '2026-10-10T12:15:00Z',
   },
 ];
 
@@ -444,6 +448,12 @@ export function codigoAleatorio() {
   return `${parte()}-${parte()}`;
 }
 
+const LETRAS_CLAVE = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
 export function claveTemporal() {
-  return `Tm${Math.random().toString(36).slice(2, 8)}${Math.floor(Math.random() * 90 + 10)}`;
+  const parte = () =>
+    Array.from(
+      { length: 4 },
+      () => LETRAS_CLAVE[Math.floor(Math.random() * LETRAS_CLAVE.length)],
+    ).join('');
+  return `${parte()}-${parte()}-${parte()}`;
 }
