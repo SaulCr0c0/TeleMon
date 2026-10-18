@@ -1,0 +1,223 @@
+.reservados {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: var(--primario-fondo);
+  border: 1px solid var(--primario-borde);
+  border-radius: var(--radio-tarjeta);
+  padding: 14px 16px;
+  color: var(--primario-hover);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.reservados strong {
+  font-weight: 600;
+}
+
+.reservadosIcono {
+  flex: none;
+  margin-top: 2px;
+}
+
+.aviso {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  padding: 14px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ok);
+}
+
+.agregar {
+  background: var(--superficie);
+  border: 1px solid var(--primario-borde);
+  border-radius: var(--radio-tarjeta);
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.agregarTitulo {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.agregarFila {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.campoNombre {
+  flex: 1 1 200px;
+}
+
+.campoMover {
+  flex: 1 1 220px;
+}
+
+.control {
+  min-height: var(--alto-control);
+  padding: 0 12px;
+  border: 1px solid var(--borde-campo);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  color: var(--texto);
+  font-size: 16px;
+  font-weight: 400;
+}
+.control:focus {
+  border-color: var(--primario);
+}
+
+.select {
+  font-size: 15px;
+}
+
+.selectPequeno {
+  font-size: 14px;
+}
+
+.error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--error);
+}
+
+.nota {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--texto-suave);
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra);
+}
+
+.cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+  padding: 16px 16px 16px 24px;
+}
+
+.resumen {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  min-width: 0;
+}
+
+.nombre {
+  min-width: 160px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.mas {
+  padding: 0 14px;
+}
+
+.flecha {
+  transition: transform 0.15s;
+}
+
+.girado {
+  transform: rotate(180deg);
+  transition: transform 0.15s;
+}
+
+.sensores {
+  border-top: 1px solid var(--borde-fila);
+  padding: 16px 24px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.sensor {
+  background: var(--fondo);
+  border-radius: var(--radio);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sensorNombre {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.sensorEstado > span {
+  font-size: 14px;
+}
+
+.edicion {
+  background: var(--superficie);
+  border: 1px solid var(--primario-borde);
+  border-radius: var(--radio-tarjeta);
+  padding: 20px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+}
+
+.vacia {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  padding: 24px;
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+
+.pie {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 24px;
+}
+
+.refresco {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  font-size: 14px;
+  color: var(--texto-suave);
+}

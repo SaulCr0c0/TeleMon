@@ -72,6 +72,7 @@ const TRAZOS = {
   ),
   atras: <path d="m15 6-6 6 6 6" />,
   adelante: <path d="m9 6 6 6-6 6" />,
+  abajo: <path d="m6 9 6 6 6-6" />,
   editar: (
     <>
       <path d="M12 20h9" />
