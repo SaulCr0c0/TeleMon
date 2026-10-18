@@ -47,8 +47,9 @@ export default [
         ubicaciones: 0,
         monitores: 0,
         desde: new Date().toISOString().slice(0, 10),
+        ultimoIngreso: null,
       };
-      CLIENTES.push(c);
+      CLIENTES.unshift(c);
       return { cliente: c, claveTemporal: claveTemporal() };
     },
   ],

@@ -1,0 +1,268 @@
+.encabezado {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.textos {
+  min-width: 0;
+}
+
+.titulo {
+  margin: 0 0 6px;
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  line-height: 1.15;
+}
+
+.bajada {
+  font-size: 15px;
+  color: var(--texto-suave);
+}
+
+.pastilla {
+  display: inline-flex;
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+
+.columnas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 24px;
+}
+
+.principal {
+  flex: 2 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.lateral {
+  flex: 1 1 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.tarjeta,
+.tarjetaLateral {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+.tarjeta {
+  gap: 20px;
+}
+
+.tarjetaLateral {
+  gap: 16px;
+}
+
+.tarjetaTabla {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra);
+  overflow: hidden;
+}
+
+.cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.subtitulo {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.subtituloTabla {
+  padding: 20px 24px 8px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.lista {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 12px 28px;
+  font-size: 14px;
+}
+
+.listaCorta {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 10px 20px;
+  font-size: 14px;
+}
+
+.lista dt,
+.listaCorta dt {
+  color: var(--texto-suave);
+}
+
+.lista dd,
+.listaCorta dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.edicion {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.botones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.botonesIzq {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.error {
+  font-size: 13px;
+  color: var(--error);
+}
+
+.mensaje {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ok);
+}
+
+.tablaUbicaciones {
+  min-width: 480px;
+}
+
+.tablaMonitores {
+  min-width: 560px;
+}
+
+.tablaUbicaciones th[scope='col'],
+.tablaMonitores th[scope='col'] {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.tablaUbicaciones td,
+.tablaUbicaciones th[scope='row'],
+.tablaMonitores td,
+.tablaMonitores th[scope='row'] {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.codigo {
+  font-family: var(--fuente-mono);
+}
+.tablaMonitores th.codigo {
+  font-weight: 500;
+}
+
+.vacio {
+  padding: 20px 24px;
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+
+.nota {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.texto {
+  font-size: 14px;
+}
+
+.textoSuave {
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+
+.textoPequeno {
+  font-size: 13px;
+  color: var(--texto);
+}
+
+.inicio {
+  align-self: flex-start;
+}
+
+.confirmar {
+  background: var(--fondo);
+  border: 1px solid var(--borde);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.confirmarPeligro {
+  background: var(--error-fondo);
+  border: 1px solid var(--error-borde);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.suspender {
+  min-height: var(--alto-control);
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--radio);
+  background: var(--error);
+  color: #ffffff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.suspender:hover {
+  background: var(--error-texto);
+}
+
+.temporal {
+  background: var(--primario-fondo);
+  border: 1px solid var(--primario-borde);
+  border-radius: 10px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.temporalTitulo {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--primario-hover);
+}
