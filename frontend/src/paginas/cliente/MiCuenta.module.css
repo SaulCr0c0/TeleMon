@@ -1,0 +1,77 @@
+.pagina {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.subtitulo {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.soloLectura input,
+.soloLectura input:focus {
+  border-color: var(--borde);
+  background: var(--fondo);
+  color: var(--texto-suave);
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.mensaje {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ok);
+}
+
+.info {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lista {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 10px 24px;
+  font-size: 14px;
+}
+
+.lista dt {
+  color: var(--texto-suave);
+}
+
+.lista dd {
+  margin: 0;
+  font-weight: 500;
+}
+
+.cargando {
+  font-size: 14px;
+  color: var(--texto-suave);
+}

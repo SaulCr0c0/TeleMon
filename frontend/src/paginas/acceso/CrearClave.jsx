@@ -5,9 +5,10 @@ import BarraRuta from '../../componentes/layout/BarraRuta';
 import Aviso from '../../componentes/ui/Aviso';
 import Boton from '../../componentes/ui/Boton';
 import Campo from '../../componentes/ui/Campo';
+import ReglasClave from '../../componentes/ui/ReglasClave';
 import { rutaInicio } from '../../sesion/rutas';
 import { useSesion } from '../../sesion/useSesion';
-import { claveValida, reglasClave } from '../../utils/validacion';
+import { claveValida } from '../../utils/validacion';
 import estilos from './CrearClave.module.css';
 
 export default function CrearClave() {
@@ -67,17 +68,7 @@ export default function CrearClave() {
           onChange={(e) => setRepetida(e.target.value)}
         />
 
-        <ul className={estilos.reglas} aria-label="Reglas de la contraseña">
-          {reglasClave(clave, repetida).map((r) => (
-            <li key={r.texto} className={r.cumple ? estilos.cumple : estilos.pendiente}>
-              <span className={estilos.marca} aria-hidden="true">
-                {r.cumple ? '✓' : ''}
-              </span>
-              {r.texto}
-              <span className="solo-lector"> {r.cumple ? '(cumplida)' : '(pendiente)'}</span>
-            </li>
-          ))}
-        </ul>
+        <ReglasClave clave={clave} repetida={repetida} />
 
         {error && <Aviso tipo="error">{error}</Aviso>}
 
