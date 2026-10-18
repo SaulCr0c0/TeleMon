@@ -1,0 +1,19 @@
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 17px;
+  letter-spacing: -0.01em;
+}
+
+.marca {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: var(--oscuro-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

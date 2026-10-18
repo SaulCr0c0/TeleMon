@@ -1,0 +1,40 @@
+name: Estandares del PR
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  revisar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Nombre de la rama
+        env:
+          RAMA: ${{ github.head_ref }}
+        run: |
+          if [[ ! "$RAMA" =~ ^(feature|fix|docs|test|chore)/[a-z0-9._-]+$ && ! "$RAMA" =~ ^revert- ]]; then
+            echo "::error::La rama debe llamarse feature/..., fix/..., docs/..., test/... o chore/... en minusculas (es: $RAMA)"
+            exit 1
+          fi
+
+      - name: Titulo del PR
+        env:
+          TITULO: ${{ github.event.pull_request.title }}
+        run: |
+          if [[ ! "$TITULO" =~ ^(feat|fix|docs|test|refactor|style|chore)(\([a-z0-9-]+\))?:\ .+ && ! "$TITULO" =~ ^Revert ]]; then
+            echo "::error::El titulo debe seguir 'tipo(area): descripcion (#n)', por ejemplo 'feat(panel): actualizar la fila por WebSocket (#55)'"
+            exit 1
+          fi
+
+      - name: Tarea enlazada
+        env:
+          CUERPO: ${{ github.event.pull_request.body }}
+        run: |
+          if ! grep -Eiq '(closes|fixes|resolves|refs) #[0-9]+' <<< "$CUERPO"; then
+            echo "::error::La descripcion del PR debe incluir 'Closes #n' (o 'Refs #n') con el numero de la tarea"
+            exit 1
+          fi

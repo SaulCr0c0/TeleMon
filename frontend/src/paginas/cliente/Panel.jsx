@@ -1,3 +1,10 @@
+import EncabezadoPagina from '../../componentes/layout/EncabezadoPagina';
+
 export default function Panel() {
-  return <h1>Panel</h1>;
+  return (
+    <EncabezadoPagina
+      titulo="Panel"
+      subtitulo="Una fila por nodo, con lo último que midió cada uno."
+    />
+  );
 }

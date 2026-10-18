@@ -1,3 +1,5 @@
+import EncabezadoPagina from '../../componentes/layout/EncabezadoPagina';
+
 export default function Clientes() {
-  return <h1>Clientes</h1>;
+  return <EncabezadoPagina titulo="Clientes" subtitulo="Organizaciones que usan el servicio." />;
 }

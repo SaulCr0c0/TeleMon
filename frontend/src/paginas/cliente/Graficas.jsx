@@ -1,3 +1,7 @@
+import EncabezadoPagina from '../../componentes/layout/EncabezadoPagina';
+
 export default function Graficas() {
-  return <h1>Gráficas</h1>;
+  return (
+    <EncabezadoPagina titulo="Gráficas" subtitulo="Elige un nodo, una variable y un periodo." />
+  );
 }

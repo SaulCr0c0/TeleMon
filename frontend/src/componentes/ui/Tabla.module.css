@@ -1,0 +1,66 @@
+.desplazable {
+  overflow-x: auto;
+}
+
+.tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.tabla thead tr {
+  text-align: left;
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+
+.tabla th[scope='col'] {
+  font-weight: 500;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--borde);
+}
+
+.tabla td,
+.tabla th[scope='row'] {
+  padding: 16px;
+  border-bottom: 1px solid var(--borde-fila);
+}
+
+.tabla th[scope='row'] {
+  text-align: left;
+  font-weight: 600;
+}
+
+.tabla tr > :first-child {
+  padding-left: 24px;
+}
+.tabla tr > :last-child {
+  padding-right: 24px;
+}
+
+.tabla tbody tr:last-child > * {
+  border-bottom: 0;
+}
+
+.derecha {
+  text-align: right;
+}
+
+.mono {
+  font-family: var(--fuente-mono);
+  color: var(--texto-2);
+}
+
+.seleccionada {
+  background: var(--seleccion);
+}
+
+.fueraDeRango {
+  color: var(--aviso);
+  font-weight: 500;
+  background: var(--aviso-fondo);
+}
+
+.vacia {
+  color: var(--texto-suave);
+}

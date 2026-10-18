@@ -1,3 +1,5 @@
+import EncabezadoPagina from '../../componentes/layout/EncabezadoPagina';
+
 export default function MiCuenta() {
-  return <h1>Mi cuenta</h1>;
+  return <EncabezadoPagina titulo="Mi cuenta" subtitulo="Tus datos y tu contraseña." />;
 }
