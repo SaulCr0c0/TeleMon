@@ -1,0 +1,80 @@
+.controles,
+.cabeceraGrafica {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+.controles > div {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.cabeceraGrafica {
+  align-items: center;
+  margin-bottom: 24px;
+}
+.valor {
+  margin: 0;
+  font: 500 40px var(--fuente-mono);
+}
+.valor,
+.resumen p {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.valor small,
+.resumen small {
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+.leyenda,
+.nota {
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+.leyenda {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.leyenda span {
+  width: 18px;
+  height: 12px;
+  background: var(--seleccion);
+  border: 1px solid var(--primario);
+  border-radius: 3px;
+}
+.resumen {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+}
+.resumen h2 {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--texto-suave);
+  margin: 0 0 12px;
+}
+.resumen p {
+  margin: 0;
+  font: 500 24px var(--fuente-mono);
+}
+.bloqueo {
+  border-color: var(--aviso);
+  text-align: center;
+  padding: 64px 24px;
+}
+.bloqueo h2 {
+  color: var(--aviso);
+  font-size: 22px;
+}
+.bloqueo p {
+  color: var(--texto-suave);
+}
+@media (max-width: 600px) {
+  .resumen {
+    grid-template-columns: 1fr;
+  }
+}

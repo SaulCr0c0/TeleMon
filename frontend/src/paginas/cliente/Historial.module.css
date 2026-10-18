@@ -1,0 +1,60 @@
+.controles,
+.botones,
+.pie,
+.acciones {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.controles,
+.pie {
+  justify-content: space-between;
+}
+.exportar {
+  display: flex;
+  justify-content: flex-end;
+}
+.filtros {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+.filtros > div {
+  min-width: 0;
+}
+.filtros input,
+.filtros select {
+  min-width: 0;
+  width: 100%;
+}
+.acciones {
+  margin-top: 20px;
+}
+.pie {
+  padding: 16px 24px;
+  border-top: 1px solid var(--borde);
+}
+.pie p,
+.nota {
+  color: var(--texto-suave);
+  font-size: 13px;
+}
+.error {
+  color: var(--error);
+  font-size: 13px;
+}
+@media (max-width: 1000px) {
+  .filtros {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 600px) {
+  .filtros {
+    grid-template-columns: 1fr;
+  }
+  .controles > div {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+}
