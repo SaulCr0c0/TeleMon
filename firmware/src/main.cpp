@@ -1,6 +1,6 @@
 // TeleMon — Firmware del nodo ESP32 (HU-01 a HU-05)
 // Lee DS18B20, DHT11, BMP280 (HW-611) y MQ-135, valida cada lectura y publica
-// un JSON por MQTT 3.1.1 en "telemetria/ambiente" cada 5 s.
+// un JSON por MQTT 3.1.1 en "telemetria/<ID>/lecturas" cada 5 s.
 
 #include <Arduino.h>
 #include <WiFi.h>
@@ -12,6 +12,8 @@
 #include <Adafruit_BMP280.h>
 #include <ArduinoJson.h>
 #include <math.h>
+#include <time.h>
+#include <sys/time.h>
 
 #include "config.h"
 #include "secrets.h"
@@ -28,6 +30,7 @@ WiFiClient wifiCliente;
 PubSubClient mqtt(wifiCliente);
 String mac;
 String clienteId;
+String tema;
 
 unsigned long ultimoCiclo = 0;
 unsigned long ultimoIntentoWifi = 0;
@@ -147,6 +150,21 @@ Lectura leerSensores() {
 // Red: Wi-Fi y MQTT con reconexión sin bloquear
 // ======================================================================
 
+void iniciarNtp() {
+  static bool iniciado = false;
+  if (iniciado) return;
+  iniciado = true;
+  configTime(0, 0, NTP_SERVIDOR_1, NTP_SERVIDOR_2);
+  Serial.println("[NTP] sincronizando hora...");
+}
+
+uint64_t horaMs() {
+  struct timeval tv;
+  gettimeofday(&tv, nullptr);
+  if (tv.tv_sec < 1700000000) return 0;
+  return (uint64_t)tv.tv_sec * 1000 + tv.tv_usec / 1000;
+}
+
 void iniciarWifi() {
   WiFi.mode(WIFI_STA);
   WiFi.setAutoReconnect(true);
@@ -163,6 +181,7 @@ void mantenerWifi() {
       conectado = true;
       Serial.printf("[WiFi] conectado, IP %s, RSSI %d dBm\n",
                     WiFi.localIP().toString().c_str(), WiFi.RSSI());
+      iniciarNtp();
     }
     return;
   }
@@ -198,13 +217,14 @@ void mantenerMqtt() {
 // Publicación
 // ======================================================================
 
-// Redondea a 2 decimales y escribe null si el valor es inválido.
-void agregarCampo(JsonDocument& doc, const char* nombre, float valor) {
+// Redondea a los decimales indicados y escribe null si el valor es inválido.
+void agregarCampo(JsonDocument& doc, const char* nombre, float valor, int decimales = 2) {
   if (isnan(valor)) {
     doc[nombre] = nullptr;
-  } else {
-    doc[nombre] = round((double)valor * 100.0) / 100.0;
+    return;
   }
+  double factor = pow(10.0, decimales);
+  doc[nombre] = round((double)valor * factor) / factor;
 }
 
 void imprimirLectura(const Lectura& l) {
@@ -215,22 +235,31 @@ void imprimirLectura(const Lectura& l) {
 }
 
 void publicar(const Lectura& l) {
+  uint64_t ts = horaMs();
   JsonDocument doc;
   doc["mac"] = mac;
+  if (ts) {
+    doc["ts"] = ts;
+  } else {
+    doc["ts"] = nullptr;
+  }
+  doc["uptime"] = millis() / 1000;
   agregarCampo(doc, "temperatura", l.temperatura);
   agregarCampo(doc, "humedad", l.humedad);
   agregarCampo(doc, "presion", l.presion);
-  agregarCampo(doc, "calidad_aire", CALIDAD_AIRE_ES_RAZON ? l.razonMq : l.voltajeMq);
+  agregarCampo(doc, "mq135_v", l.voltajeMq, 3);
+  doc["rssi"] = WiFi.RSSI();
+  doc["fw"] = FW_VERSION;
 
-  char payload[256];
+  char payload[320];
   size_t n = serializeJson(doc, payload, sizeof(payload));
 
   if (!mqtt.connected()) {
     Serial.printf("[MQTT] sin conexión, no se publica: %s\n", payload);
     return;
   }
-  bool ok = mqtt.publish(MQTT_TEMA, (const uint8_t*)payload, n, false);
-  Serial.printf("[MQTT] %s %s -> %s\n", ok ? "publicado" : "ERROR al publicar", MQTT_TEMA, payload);
+  bool ok = mqtt.publish(tema.c_str(), (const uint8_t*)payload, n, false);
+  Serial.printf("[MQTT] %s %s -> %s\n", ok ? "publicado" : "ERROR al publicar", tema.c_str(), payload);
 }
 
 // Línea CSV para la calibración de Brenda (valores crudos, sin offsets).
@@ -262,11 +291,13 @@ void setup() {
 #else
   iniciarWifi();
   mac = WiFi.macAddress();
-  clienteId = "esp32-" + mac;
+  clienteId = mac;
   clienteId.replace(":", "");
-  Serial.printf("[Nodo] MAC %s\n", mac.c_str());
+  tema = "telemetria/" + clienteId + "/lecturas";
+  Serial.printf("[Nodo] MAC %s  tema %s\n", mac.c_str(), tema.c_str());
 
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
+  mqtt.setBufferSize(512);
   mqtt.setKeepAlive(MQTT_KEEPALIVE);
   mqtt.setSocketTimeout(MQTT_TIMEOUT);
 #endif
