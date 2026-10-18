@@ -73,6 +73,12 @@ const TRAZOS = {
   atras: <path d="m15 6-6 6 6 6" />,
   adelante: <path d="m9 6 6 6-6 6" />,
   abajo: <path d="m6 9 6 6 6-6" />,
+  buscar: (
+    <>
+      <circle cx="11" cy="11" r="7" />
+      <path d="m20 20-3.5-3.5" />
+    </>
+  ),
   editar: (
     <>
       <path d="M12 20h9" />

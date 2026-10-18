@@ -1,0 +1,226 @@
+.registrar {
+  padding: 0 18px 0 14px;
+}
+
+.formulario {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.subtitulo {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.texto {
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+
+.texto2 {
+  font-size: 14px;
+  color: var(--texto);
+}
+
+.campos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.campo {
+  flex: 1 1 260px;
+}
+
+.botones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.botonesIzq {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.registrado {
+  background: var(--primario-fondo);
+  border: 1px solid var(--primario-borde);
+  border-radius: var(--radio-tarjeta);
+  padding: 24px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.registradoTextos {
+  flex: 1 1 280px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.registradoTitulo {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--primario-hover);
+}
+
+.etiqueta {
+  flex: 0 0 auto;
+  min-width: 220px;
+  background: var(--superficie);
+  border: 1px solid var(--primario-borde);
+  border-radius: 10px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.etiquetaMarca {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.etiquetaLogo {
+  width: 20px;
+  height: 20px;
+  border-radius: 6px;
+  background: var(--oscuro-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.etiquetaTexto {
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+
+.etiquetaCodigo {
+  font-family: var(--fuente-mono);
+  font-size: 28px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.etiquetaMac {
+  font-family: var(--fuente-mono);
+  font-size: 12px;
+  color: var(--texto-suave);
+}
+
+.herramientas {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px 16px;
+}
+
+.herramientas [role='group'] button {
+  padding: 0 14px;
+}
+
+.buscador {
+  position: relative;
+  flex: 1 1 260px;
+  max-width: 360px;
+  display: block;
+}
+
+.lupa {
+  position: absolute;
+  left: 14px;
+  top: 15px;
+  color: var(--texto-suave);
+  pointer-events: none;
+}
+
+.busqueda {
+  width: 100%;
+  min-height: var(--alto-campo);
+  padding: 0 14px 0 42px;
+  border: 1px solid var(--borde-campo);
+  border-radius: var(--radio);
+  background: var(--superficie);
+  color: var(--texto);
+  font-size: 16px;
+}
+.busqueda:focus {
+  border-color: var(--primario);
+}
+
+.tarjeta {
+  background: var(--superficie);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio-tarjeta);
+  box-shadow: var(--sombra);
+  overflow: hidden;
+}
+
+.tabla {
+  min-width: 900px;
+}
+
+.tabla td,
+.tabla th[scope='row'] {
+  padding-top: 14px;
+  padding-bottom: 14px;
+}
+
+.celdaMac {
+  font-weight: 400;
+}
+
+.mac {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  font-family: var(--fuente-mono);
+  font-weight: 500;
+}
+.mac:hover {
+  text-decoration: underline;
+}
+
+.cliente {
+  font-weight: 500;
+}
+
+.lugar {
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.conexion > span {
+  font-weight: 400;
+}
+
+.vacio {
+  padding: 28px 24px;
+  font-size: 14px;
+  color: var(--texto-suave);
+}
+
+.nota {
+  font-size: 13px;
+  color: var(--texto-suave);
+}

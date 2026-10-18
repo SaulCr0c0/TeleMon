@@ -107,7 +107,7 @@ export default [
         r0: null,
         notas: '',
       };
-      MONITORES.push(m);
+      MONITORES.unshift(m);
       evento(m, `Registrado con el código ${m.codigo}`);
       if (cliente) evento(m, `Reservado para ${cliente.organizacion}`);
       return m;
