@@ -24,3 +24,10 @@ postgres_datos/
 Thumbs.db
 *.swp
 *.log
+
+node_modules/
+frontend/dist/
+frontend/.env.local
+frontend/coverage/
+frontend/test-results/
+frontend/playwright-report/
