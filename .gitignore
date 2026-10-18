@@ -16,7 +16,10 @@ venv/
 mosquitto/data/
 mosquitto/log/
 mosquitto/config/passwd
-nodered/data/node_modules/
+nodered/data/*
+!nodered/data/flows.json
+!nodered/data/flows_cred.json
+!nodered/data/settings.js
 postgres_datos/
 
 # Sistema operativo y editores

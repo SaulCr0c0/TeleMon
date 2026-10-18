@@ -1,0 +1,194 @@
+[
+    {
+        "id": "7f3b2c1a9d4e5f01",
+        "type": "tab",
+        "label": "Recepción",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "c4e1a7b39f2d6e04",
+        "type": "mqtt in",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Lecturas de los monitores",
+        "topic": "telemetria/+/lecturas",
+        "qos": "0",
+        "datatype": "utf8",
+        "broker": "3e8d1f2a6b7c9d02",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 150,
+        "y": 100,
+        "wires": [
+            [
+                "1b7d9e3c5a2f8b05"
+            ]
+        ]
+    },
+    {
+        "id": "1b7d9e3c5a2f8b05",
+        "type": "function",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Validar trama",
+        "func": "const llegada = Date.now();\nconst tema = /^telemetria\\/([0-9A-F]{12})\\/lecturas$/.exec(msg.topic);\nif (!tema) {\n    node.warn(`Tema no válido: ${msg.topic}`);\n    return null;\n}\nlet datos;\ntry {\n    datos = JSON.parse(msg.payload);\n} catch (error) {\n    node.warn(`JSON mal formado en ${msg.topic}`);\n    return null;\n}\nif (datos === null || typeof datos !== 'object' || Array.isArray(datos)) {\n    node.warn(`La trama de ${msg.topic} no es un objeto JSON`);\n    return null;\n}\nif (typeof datos.mac !== 'string') {\n    node.warn(`La trama de ${msg.topic} no trae la MAC`);\n    return null;\n}\nconst mac = datos.mac.toUpperCase();\nif (!/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(mac)) {\n    node.warn(`MAC no válida en ${msg.topic}: ${datos.mac}`);\n    return null;\n}\nif (mac.replace(/:/g, '') !== tema[1]) {\n    node.warn(`La MAC ${mac} no coincide con el tema ${msg.topic}`);\n    return null;\n}\nconst decimal = (valor, min, max) =>\n    typeof valor === 'number' && Number.isFinite(valor) && valor >= min && valor <= max ? valor : null;\nconst entero = (valor, min, max) => (Number.isInteger(valor) && valor >= min && valor <= max ? valor : null);\nconst lectura = {\n    ts: entero(datos.ts, 1700000000000, 4102444800000),\n    uptime: entero(datos.uptime, 0, 2147483647),\n    temperatura: decimal(datos.temperatura, -40, 85),\n    humedad: decimal(datos.humedad, 0, 100),\n    presion: decimal(datos.presion, 300, 1100),\n    mq135_v: decimal(datos.mq135_v, 0.05, 5),\n    rssi: entero(datos.rssi, -127, 0),\n    fw: typeof datos.fw === 'string' && datos.fw.length > 0 && datos.fw.length <= 32 ? datos.fw : null,\n};\nconst invalidos = Object.keys(lectura).filter(\n    (campo) => lectura[campo] === null && datos[campo] !== null && datos[campo] !== undefined,\n);\nif (invalidos.length > 0) {\n    node.warn(`Campos no válidos de ${mac}, se guardan como nulos: ${invalidos.join(', ')}`);\n}\nmsg.llegada = llegada;\nmsg.mac = mac;\nmsg.lectura = lectura;\nmsg.query = `SELECT d.id, d.estado, d.cliente_id, d.ubicacion_id, d.mq135_r0_kohm, u.cliente_id AS cliente_ubicacion\nFROM dispositivos d\nLEFT JOIN ubicaciones u ON u.id = d.ubicacion_id\nWHERE d.mac_address = $1`;\nmsg.params = [mac];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 100,
+        "wires": [
+            [
+                "9e2a4c6f8b1d3e06"
+            ]
+        ]
+    },
+    {
+        "id": "9e2a4c6f8b1d3e06",
+        "type": "postgresql",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Buscar monitor",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 560,
+        "y": 100,
+        "wires": [
+            [
+                "6d3f8a1c2e9b7f07"
+            ]
+        ]
+    },
+    {
+        "id": "6d3f8a1c2e9b7f07",
+        "type": "function",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Calcular aire y tiempos",
+        "func": "const disp = msg.payload[0];\nif (!disp) {\n    node.warn(`Monitor no registrado: ${msg.mac}`);\n    return null;\n}\nif (disp.estado !== 'en_uso') {\n    node.warn(`Monitor ${msg.mac} en estado ${disp.estado}: no se guardan sus lecturas`);\n    return null;\n}\nif (disp.ubicacion_id === null) {\n    node.warn(`Monitor ${msg.mac} en uso sin ubicación asignada`);\n    return null;\n}\nif (disp.cliente_id !== disp.cliente_ubicacion) {\n    node.warn(`La ubicación ${disp.ubicacion_id} no pertenece al cliente del monitor ${msg.mac}`);\n    return null;\n}\nconst l = msg.lectura;\nconst latencia = l.ts !== null && Math.abs(msg.llegada - l.ts) <= 10000 ? msg.llegada - l.ts : null;\nconst RL_EF = (1 * 30) / (1 + 30);\nconst r0 = disp.mq135_r0_kohm === null ? null : Number(disp.mq135_r0_kohm);\nlet rsR0 = null;\nlet nivel = null;\nif (l.mq135_v !== null && l.mq135_v < 5 && r0 > 0) {\n    const razon = Math.round(((RL_EF * (5 - l.mq135_v)) / l.mq135_v / r0) * 1000) / 1000;\n    if (razon <= 999.999) {\n        rsR0 = razon;\n        nivel = razon >= 0.8 ? 'bueno' : razon >= 0.5 ? 'moderado' : 'malo';\n    } else {\n        node.warn(`Rs/R0 de ${msg.mac} fuera de rango (${razon}): revisar el R0 del monitor`);\n    }\n}\nmsg.calculado = { latencia, rsR0, nivel };\nmsg.query = `WITH monitor AS (\n  UPDATE dispositivos\n  SET ultima_lectura_en = GREATEST(ultima_lectura_en, to_timestamp($3 / 1000.0)),\n      ultimo_rssi = CASE WHEN ultima_lectura_en > to_timestamp($3 / 1000.0) THEN ultimo_rssi\n        ELSE COALESCE($13::smallint, ultimo_rssi) END,\n      ultimo_uptime_s = CASE WHEN ultima_lectura_en > to_timestamp($3 / 1000.0) THEN ultimo_uptime_s\n        ELSE COALESCE($12::integer, ultimo_uptime_s) END,\n      fw = CASE WHEN ultima_lectura_en > to_timestamp($3 / 1000.0) THEN fw\n        ELSE COALESCE($14::text, fw) END\n  WHERE id = $1 AND estado = 'en_uso' AND ubicacion_id = $2\n  RETURNING id, ubicacion_id\n)\nINSERT INTO lecturas (dispositivo_id, ubicacion_id, fecha_hora, ts_dispositivo, latencia_ms,\n  temperatura, humedad, presion, mq135_v, rs_r0, nivel_aire, uptime_s)\nSELECT id, ubicacion_id, to_timestamp($3 / 1000.0), to_timestamp($4 / 1000.0), $5::integer,\n  $6::numeric, $7::numeric, $8::numeric, $9::numeric, $10::numeric, $11::text, $12::integer\nFROM monitor\nRETURNING id, dispositivo_id, ubicacion_id, fecha_hora`;\nmsg.params = [disp.id, disp.ubicacion_id, msg.llegada, l.ts, latencia, l.temperatura, l.humedad, l.presion,\n    l.mq135_v, rsR0, nivel, l.uptime, l.rssi, l.fw];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 770,
+        "y": 100,
+        "wires": [
+            [
+                "2f9b6d4a8c3e1a08"
+            ]
+        ]
+    },
+    {
+        "id": "2f9b6d4a8c3e1a08",
+        "type": "postgresql",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Guardar lectura",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 990,
+        "y": 100,
+        "wires": [
+            [
+                "8a4e2c9f1b6d5c09"
+            ]
+        ]
+    },
+    {
+        "id": "8a4e2c9f1b6d5c09",
+        "type": "function",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Preparar evento",
+        "func": "const fila = msg.payload[0];\nif (!fila) {\n    node.warn(`El monitor ${msg.mac} cambió de estado o de ubicación antes de guardar la lectura`);\n    return null;\n}\nconst l = msg.lectura;\nmsg.lecturaId = Number(fila.id);\nmsg.payload = {\n    tipo: 'lectura',\n    ubicacionId: fila.ubicacion_id,\n    dispositivoId: fila.dispositivo_id,\n    fecha: new Date(fila.fecha_hora).toISOString(),\n    temperatura: l.temperatura,\n    humedad: l.humedad,\n    presion: l.presion,\n    rsR0: msg.calculado.rsR0,\n    nivelAire: msg.calculado.nivel,\n};\ndelete msg.query;\ndelete msg.params;\ndelete msg.pgsql;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1180,
+        "y": 100,
+        "wires": [
+            [
+                "4c8f1e3b7a2d9f0a"
+            ]
+        ]
+    },
+    {
+        "id": "4c8f1e3b7a2d9f0a",
+        "type": "link out",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Lectura guardada",
+        "mode": "link",
+        "links": [],
+        "x": 1345,
+        "y": 100,
+        "wires": []
+    },
+    {
+        "id": "3e8d1f2a6b7c9d02",
+        "type": "mqtt-broker",
+        "name": "Broker TeleMon",
+        "broker": "broker",
+        "port": "1883",
+        "clientid": "nodered",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": "4",
+        "keepalive": "60",
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "5a9c3b7e1d2f4a03",
+        "type": "postgreSQLConfig",
+        "name": "PostgreSQL TeleMon",
+        "host": "PGHOST",
+        "hostFieldType": "env",
+        "port": "5432",
+        "portFieldType": "num",
+        "database": "PGDATABASE",
+        "databaseFieldType": "env",
+        "ssl": "false",
+        "sslFieldType": "bool",
+        "applicationName": "nodered",
+        "applicationNameType": "str",
+        "max": "10",
+        "maxFieldType": "num",
+        "idle": "1000",
+        "idleFieldType": "num",
+        "connectionTimeout": "10000",
+        "connectionTimeoutFieldType": "num",
+        "user": "PGUSER",
+        "userFieldType": "env",
+        "password": "PGPASSWORD",
+        "passwordFieldType": "env"
+    }
+]
