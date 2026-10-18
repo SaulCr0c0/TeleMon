@@ -29,19 +29,21 @@ export default function useTiempoReal(ubicacionId, alMensaje) {
 
     const conectar = () => {
       const protocolo = window.location.protocol === 'https:' ? 'wss' : 'ws';
-      socket = new WebSocket(
-        `${protocolo}://${window.location.host}/ws/ubicaciones/${ubicacionId}`,
-      );
+      socket = new WebSocket(`${protocolo}://${window.location.host}/ws/lecturas`);
       socket.onopen = () => {
         intentos = 0;
         setConectado(true);
       };
       socket.onmessage = (evento) => {
+        let dato;
         try {
-          manejador.current?.(JSON.parse(evento.data));
+          dato = JSON.parse(evento.data);
         } catch {
           return;
         }
+        if (!dato || typeof dato.tipo !== 'string') return;
+        if (String(dato.ubicacionId) !== String(ubicacionId)) return;
+        manejador.current?.(dato);
       };
       socket.onclose = () => {
         setConectado(false);

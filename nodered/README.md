@@ -1,6 +1,6 @@
 # nodered
 
-Backend de TeleMon en Node-RED 4.0.9 con `node-red-contrib-postgresql`. Por ahora contiene la **recepción de lecturas** (#49) y el **cálculo de Rs/R0** (#53). La API de últimas lecturas y el WebSocket llegan con #54.
+Backend de TeleMon en Node-RED 4.0.9 con `node-red-contrib-postgresql`. Contiene la **recepción de lecturas** (#49), el **cálculo de Rs/R0** (#53), la **API de últimas lecturas** y el **WebSocket** `/ws/lecturas` (#54).
 
 ## Levantar
 
@@ -41,7 +41,7 @@ El resto de `data/` lo genera Node-RED y no se sube. Si se cambia el flujo en el
 2. **Buscar monitor** por su MAC.
 3. **Calcular aire y tiempos.** Solo sigue si el monitor está `en_uso`, tiene ubicación y esa ubicación es de su mismo cliente. Calcula la latencia y Rs/R0.
 4. **Guardar lectura.** Una sola sentencia actualiza el monitor (última lectura, RSSI, uptime y firmware) e inserta la lectura, y solo si el monitor sigue `en_uso` en esa ubicación. Si algo falla no se guarda nada y no sale ningún evento. Un mensaje más viejo no hace retroceder los datos del monitor, y un RSSI, uptime o firmware nulo no borra el último conocido.
-5. **Preparar evento.** Deja en `msg.payload` el aviso de la lectura guardada (`tipo`, `ubicacionId`, `dispositivoId`, `fecha`, las tres variables, `rsR0`, `nivelAire`) y lo pasa a «Lectura guardada». Ahí se conectan el WebSocket (#54), las alertas (#69, #74) y los reinicios (#76).
+5. **Preparar evento.** Deja en `msg.payload` el aviso de la lectura guardada (`tipo`, `ubicacionId`, `dispositivoId`, `fecha`, las tres variables, `rsR0`, `nivelAire`) y lo pasa a «Lectura guardada». De ahí sale al WebSocket; las alertas (#69, #74) y los reinicios (#76) se conectan en el mismo punto.
 
 Cada campo se acepta solo si es un número dentro del rango físico de `firmware/include/config.h`. Si no lo es, se guarda como `null` y el resto de la lectura no se pierde. El texto `"22.8"` no se toma como número y `null` no pasa a cero.
 
@@ -57,6 +57,45 @@ Cada campo se acepta solo si es un número dentro del rango físico de `firmware
 | `fw` | Texto de 1 a 32 caracteres |
 
 Las tramas descartadas y los campos inválidos quedan como aviso en el log, con el motivo: `docker compose logs nodered | grep warn`.
+
+## Flujo «API y tiempo real»
+
+### `GET /api/ubicaciones/:id/ultimas`
+
+Una fila por monitor `en_uso` de la ubicación, ordenada por id, con su última lectura **en esa ubicación** (si el nodo se trasladó, no muestra lo que midió en la anterior). Misma forma que `frontend/src/api/demo/panel.js`:
+
+```json
+[
+  {
+    "dispositivoId": 1,
+    "nombre": "Aula 3",
+    "conectado": true,
+    "fecha": "2026-10-18T19:23:12.796Z",
+    "temperatura": 22.81,
+    "humedad": 46,
+    "presion": 748.4,
+    "rsR0": null,
+    "nivelAire": "sin_calibrar"
+  }
+]
+```
+
+- `conectado`: la última lectura es más reciente que la espera «sin conexión» de la ubicación (`ubicaciones.espera_sin_conexion_s`).
+- Nodo sin lecturas: aparece con `fecha`, variables y `nivelAire` en `null` y `conectado: false` («Esperando la primera lectura»).
+- `nivelAire`: el nivel guardado; `"sin_calibrar"` si hubo voltaje del MQ-135 pero no Rs/R0 (falta R0); `null` si el MQ-135 no respondió, igual que una variable nula es «sin respuesta».
+
+| Caso | Respuesta |
+|---|---|
+| ID que no es un entero positivo (`abc`, `0`, `1.5`) | 400 `{ "mensaje": "Ubicación no válida." }` |
+| Ubicación inexistente | 404 `{ "mensaje": "Ubicación no encontrada." }` |
+| Ubicación sin nodos en uso | 200 `[]` |
+| Falla de la base | 500 `{ "mensaje": "No se pudieron consultar los datos. Intenta de nuevo." }`, y el error queda en el log |
+
+### WebSocket `/ws/lecturas`
+
+Los nodos WebSocket de Node-RED escuchan una ruta fija, así que hay un solo canal para todas las ubicaciones. Cada lectura guardada se envía como `{ tipo: "lectura", ubicacionId, dispositivoId, fecha, temperatura, humedad, presion, rsR0, nivelAire }`, con los mismos valores y la misma regla de `nivelAire` que `/ultimas`. El frontend (`useTiempoReal`) se queda solo con los mensajes de su ubicación.
+
+Ese filtro del navegador **no es una medida de seguridad**: hoy cualquiera que abra el canal recibe las lecturas de todos los clientes. Autenticar la conexión y enviar a cada cliente solo lo suyo queda para el login (#63).
 
 ## Calidad del aire (#53)
 
@@ -90,6 +129,15 @@ docker exec broker sh -c 'mosquitto_pub -u "$MQTT_USER_ESP32" -P "$MQTT_PASS_ESP
 docker exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT id, latencia_ms, temperatura, presion, mq135_v, rs_r0, nivel_aire FROM lecturas ORDER BY id DESC LIMIT 3;"'
 docker exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELECT ultima_lectura_en, ultimo_rssi, ultimo_uptime_s, fw FROM dispositivos WHERE id = 1;"'
 ```
+
+Ver la API y escuchar el WebSocket (Node.js 22 trae `WebSocket`):
+
+```bash
+curl -s localhost:1880/api/ubicaciones/1/ultimas
+node -e "const ws = new WebSocket('ws://localhost:1880/ws/lecturas'); ws.onmessage = (e) => console.log(e.data);"
+```
+
+Con el segundo comando abierto, cada lectura publicada aparece como `{"tipo":"lectura","ubicacionId":1,...}`.
 
 Para probar Rs/R0 con un R0 de prueba: `UPDATE dispositivos SET mq135_r0_kohm = 10.5 WHERE id = 1;` y publicar con `mq135_v` 0.421, 0.62 y 1.2 (bueno 1.002, moderado 0.651, malo 0.292). Al terminar hay que volver a dejarlo como estaba: `UPDATE dispositivos SET mq135_r0_kohm = NULL WHERE id = 1;`.
 

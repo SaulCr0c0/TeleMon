@@ -109,7 +109,7 @@
         "type": "function",
         "z": "7f3b2c1a9d4e5f01",
         "name": "Preparar evento",
-        "func": "const fila = msg.payload[0];\nif (!fila) {\n    node.warn(`El monitor ${msg.mac} cambió de estado o de ubicación antes de guardar la lectura`);\n    return null;\n}\nconst l = msg.lectura;\nmsg.lecturaId = Number(fila.id);\nmsg.payload = {\n    tipo: 'lectura',\n    ubicacionId: fila.ubicacion_id,\n    dispositivoId: fila.dispositivo_id,\n    fecha: new Date(fila.fecha_hora).toISOString(),\n    temperatura: l.temperatura,\n    humedad: l.humedad,\n    presion: l.presion,\n    rsR0: msg.calculado.rsR0,\n    nivelAire: msg.calculado.nivel,\n};\ndelete msg.query;\ndelete msg.params;\ndelete msg.pgsql;\nreturn msg;",
+        "func": "const fila = msg.payload[0];\nif (!fila) {\n    node.warn(`El monitor ${msg.mac} cambió de estado o de ubicación antes de guardar la lectura`);\n    return null;\n}\nconst l = msg.lectura;\nmsg.lecturaId = Number(fila.id);\nmsg.payload = {\n    tipo: 'lectura',\n    ubicacionId: fila.ubicacion_id,\n    dispositivoId: fila.dispositivo_id,\n    fecha: new Date(fila.fecha_hora).toISOString(),\n    temperatura: l.temperatura,\n    humedad: l.humedad,\n    presion: l.presion,\n    rsR0: msg.calculado.rsR0,\n    nivelAire: msg.calculado.nivel ?? (l.mq135_v !== null ? 'sin_calibrar' : null),\n};\ndelete msg.query;\ndelete msg.params;\ndelete msg.pgsql;\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -130,9 +130,174 @@
         "z": "7f3b2c1a9d4e5f01",
         "name": "Lectura guardada",
         "mode": "link",
-        "links": [],
+        "links": [
+            "b9f1d3e5a7c6b80b"
+        ],
         "x": 1345,
         "y": 100,
+        "wires": []
+    },
+    {
+        "id": "b2d4f6a8c0e1f302",
+        "type": "tab",
+        "label": "API y tiempo real",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "a1b3c5d7e9f0a104",
+        "type": "http in",
+        "z": "b2d4f6a8c0e1f302",
+        "name": "",
+        "url": "/api/ubicaciones/:id/ultimas",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 220,
+        "y": 80,
+        "wires": [
+            [
+                "f2e4d6c8b0a1c205"
+            ]
+        ]
+    },
+    {
+        "id": "f2e4d6c8b0a1c205",
+        "type": "function",
+        "z": "b2d4f6a8c0e1f302",
+        "name": "Validar ubicación",
+        "func": "const texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) ? Number(texto) : null;\nif (id === null || id > 2147483647) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Ubicación no válida.' };\n    return [null, msg];\n}\nmsg.query = `SELECT d.id AS dispositivo_id, d.nombre, l.fecha_hora, l.temperatura, l.humedad, l.presion,\n  l.mq135_v, l.rs_r0, l.nivel_aire,\n  l.fecha_hora > now() - make_interval(secs => u.espera_sin_conexion_s) AS conectado\nFROM ubicaciones u\nLEFT JOIN dispositivos d ON d.ubicacion_id = u.id AND d.estado = 'en_uso'\nLEFT JOIN LATERAL (\n  SELECT fecha_hora, temperatura, humedad, presion, mq135_v, rs_r0, nivel_aire\n  FROM lecturas\n  WHERE dispositivo_id = d.id AND ubicacion_id = u.id\n  ORDER BY fecha_hora DESC, id DESC\n  LIMIT 1\n) l ON true\nWHERE u.id = $1\nORDER BY d.id`;\nmsg.params = [id];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 80,
+        "wires": [
+            [
+                "c3a5e7b9d1f0e306"
+            ],
+            [
+                "e6c8a0b2d4f3e508"
+            ]
+        ]
+    },
+    {
+        "id": "c3a5e7b9d1f0e306",
+        "type": "postgresql",
+        "z": "b2d4f6a8c0e1f302",
+        "name": "Últimas por nodo",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 680,
+        "y": 80,
+        "wires": [
+            [
+                "d4b6f8a0c2e1d407"
+            ]
+        ]
+    },
+    {
+        "id": "d4b6f8a0c2e1d407",
+        "type": "function",
+        "z": "b2d4f6a8c0e1f302",
+        "name": "Formatear respuesta",
+        "func": "if (msg.payload.length === 0) {\n    msg.statusCode = 404;\n    msg.payload = { mensaje: 'Ubicación no encontrada.' };\n    return msg;\n}\nconst numero = (valor) => (valor === null ? null : Number(valor));\nmsg.payload = msg.payload\n    .filter((f) => f.dispositivo_id !== null)\n    .map((f) => ({\n        dispositivoId: f.dispositivo_id,\n        nombre: f.nombre,\n        conectado: f.conectado === true,\n        fecha: f.fecha_hora === null ? null : new Date(f.fecha_hora).toISOString(),\n        temperatura: numero(f.temperatura),\n        humedad: numero(f.humedad),\n        presion: numero(f.presion),\n        rsR0: numero(f.rs_r0),\n        nivelAire: f.nivel_aire ?? (f.mq135_v !== null ? 'sin_calibrar' : null),\n    }));\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 890,
+        "y": 80,
+        "wires": [
+            [
+                "e6c8a0b2d4f3e508"
+            ]
+        ]
+    },
+    {
+        "id": "e6c8a0b2d4f3e508",
+        "type": "http response",
+        "z": "b2d4f6a8c0e1f302",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1080,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "f7d9b1c3e5a4f609",
+        "type": "catch",
+        "z": "b2d4f6a8c0e1f302",
+        "name": "Errores de la API",
+        "scope": [
+            "f2e4d6c8b0a1c205",
+            "c3a5e7b9d1f0e306",
+            "d4b6f8a0c2e1d407"
+        ],
+        "uncaught": false,
+        "x": 220,
+        "y": 160,
+        "wires": [
+            [
+                "a8e0c2d4f6b5a70a"
+            ]
+        ]
+    },
+    {
+        "id": "a8e0c2d4f6b5a70a",
+        "type": "function",
+        "z": "b2d4f6a8c0e1f302",
+        "name": "Responder error",
+        "func": "node.error(`${msg.error.source.name || msg.error.source.type}: ${msg.error.message}`);\nmsg.statusCode = 500;\nmsg.payload = { mensaje: 'No se pudieron consultar los datos. Intenta de nuevo.' };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 470,
+        "y": 160,
+        "wires": [
+            [
+                "e6c8a0b2d4f3e508"
+            ]
+        ]
+    },
+    {
+        "id": "b9f1d3e5a7c6b80b",
+        "type": "link in",
+        "z": "b2d4f6a8c0e1f302",
+        "name": "Lectura guardada",
+        "links": [
+            "4c8f1e3b7a2d9f0a"
+        ],
+        "x": 175,
+        "y": 240,
+        "wires": [
+            [
+                "c0a2e4f6b8d7c90c"
+            ]
+        ]
+    },
+    {
+        "id": "c0a2e4f6b8d7c90c",
+        "type": "websocket out",
+        "z": "b2d4f6a8c0e1f302",
+        "name": "",
+        "server": "e5a7c9b1d3f2a403",
+        "client": "",
+        "x": 400,
+        "y": 240,
         "wires": []
     },
     {
@@ -190,5 +355,11 @@
         "userFieldType": "env",
         "password": "PGPASSWORD",
         "passwordFieldType": "env"
+    },
+    {
+        "id": "e5a7c9b1d3f2a403",
+        "type": "websocket-listener",
+        "path": "/ws/lecturas",
+        "wholemsg": "false"
     }
 ]
