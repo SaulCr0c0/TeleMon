@@ -134,22 +134,22 @@ export default [
           {
             nombre: 'DS18B20',
             rol: 'Temperatura',
-            estado: m.conexion === 'nunca' ? 'sin_datos' : 'responde',
+            estado: m.conexion !== 'en_linea' ? 'sin_datos' : 'responde',
           },
           {
             nombre: 'DHT11',
             rol: 'Humedad',
-            estado: m.conexion === 'nunca' ? 'sin_datos' : 'responde',
+            estado: m.conexion !== 'en_linea' ? 'sin_datos' : 'responde',
           },
           {
             nombre: 'BMP280',
             rol: 'Presión',
-            estado: m.conexion === 'nunca' ? 'sin_datos' : 'responde',
+            estado: m.conexion !== 'en_linea' ? 'sin_datos' : 'responde',
           },
           {
             nombre: 'MQ-135',
             rol: 'Calidad del aire',
-            estado: m.conexion === 'nunca' ? 'sin_datos' : m.r0 ? 'responde' : 'sin_calibrar',
+            estado: m.conexion !== 'en_linea' ? 'sin_datos' : m.r0 ? 'responde' : 'sin_calibrar',
           },
         ],
         eventos: EVENTOS_MONITOR[m.id] ?? [],
@@ -172,6 +172,10 @@ export default [
         });
         evento(m, c ? `Reservado para ${c.organizacion}` : 'Reserva quitada');
         delete cambios.clienteId;
+      }
+      if ('r0' in cambios) {
+        cambios.r0 = Number(cambios.r0);
+        evento(m, `R0 del MQ-135 cargado: ${cambios.r0} kΩ`);
       }
       return Object.assign(m, cambios);
     },

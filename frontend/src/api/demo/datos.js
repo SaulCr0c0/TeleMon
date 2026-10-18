@@ -436,6 +436,22 @@ export const EVENTOS_MONITOR = {
     { fecha: '2026-10-17T13:12:00Z', texto: 'Reservado para Red Escolar Valle Alto' },
     { fecha: '2026-10-16T22:40:00Z', texto: 'Registrado con el código H7QD-4MXA' },
   ],
+  4: [
+    { fecha: '2026-10-17T13:12:00Z', texto: 'Reservado para Red Escolar Valle Alto' },
+    { fecha: '2026-10-16T22:40:00Z', texto: 'Registrado con el código W3FJ-7KTA' },
+  ],
+  6: [{ fecha: '2026-10-16T22:41:00Z', texto: 'Registrado con el código M5RY-2QFJ' }],
+  8: [
+    { fecha: '2026-10-15T14:30:00Z', texto: 'Desactivado por el cliente' },
+    { fecha: '2026-10-02T12:15:00Z', texto: 'Activado por el cliente como «Corral 1»' },
+    { fecha: '2026-10-01T21:05:00Z', texto: 'Reservado para Granja Avícola Tunari' },
+    { fecha: '2026-09-30T16:40:00Z', texto: 'Registrado con el código R3GW-5NSK' },
+  ],
+  9: [
+    { fecha: '2026-10-10T20:20:00Z', texto: 'Retirado. Código anulado' },
+    { fecha: '2026-10-05T16:00:00Z', texto: 'Liberado. Código nuevo Z4HS-7VMT' },
+    { fecha: '2026-09-22T13:30:00Z', texto: 'Registrado con el código anterior' },
+  ],
 };
 
 let siguienteId = 1000;
