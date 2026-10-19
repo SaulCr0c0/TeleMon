@@ -34,7 +34,7 @@ export default [
           ? []
           : Array.from({ length: puntos }, (_, i) => ({
               fecha: new Date(fin - (puntos - 1 - i) * pasoS * 1000).toISOString(),
-              valor: +(base + AMPLITUD[variable] * Math.sin(i / 6 + id) * 0.6).toFixed(2),
+              valor: +(base + AMPLITUD[variable] * Math.sin(i / 6 + Number(id)) * 0.6).toFixed(2),
             }));
       return { variable, periodo, rango: rango(nodo?.ubicacionId ?? 1, variable), puntos: serie };
     },

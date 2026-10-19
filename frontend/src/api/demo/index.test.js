@@ -2,6 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { resolverDemo } from './index';
 
 describe('datos de ejemplo', () => {
+  it('genera series suaves con el identificador de la ruta recibido como texto', async () => {
+    const { puntos } = await resolverDemo('GET', '/api/dispositivos/11/serie');
+    expect(puntos).toHaveLength(60);
+    const saltos = puntos.slice(1).map((punto, i) => Math.abs(punto.valor - puntos[i].valor));
+    expect(Math.max(...saltos)).toBeLessThan(0.26);
+  });
+
   it('resuelve rutas con parámetros y query', async () => {
     const ultimas = await resolverDemo('GET', '/api/ubicaciones/1/ultimas');
     expect(ultimas.length).toBeGreaterThan(0);
