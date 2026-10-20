@@ -1,6 +1,6 @@
 # nodered
 
-Backend de TeleMon en Node-RED 4.0.9 con `node-red-contrib-postgresql`. Contiene la **recepción de lecturas** (#49), el **cálculo de Rs/R0** (#53), la **API de últimas lecturas** y el **WebSocket** `/ws/lecturas` (#54).
+Backend de TeleMon en Node-RED 4.0.9 con `node-red-contrib-postgresql`. Contiene la **recepción de lecturas** (#49), el **cálculo de Rs/R0** (#53), la **API de últimas lecturas** y el **WebSocket** `/ws/lecturas` (#54) y la **sesión** con login, token y permisos (#63).
 
 ## Levantar
 
@@ -18,6 +18,7 @@ Las variables salen del `.env` de la raíz:
 | `MQTT_USER`, `MQTT_PASS` | `MQTT_USER_NODERED`, `MQTT_PASS_NODERED` |
 | `PGHOST` | `postgres` |
 | `PGDATABASE`, `PGUSER`, `PGPASSWORD` | `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` |
+| `JWT_SECRETO` | `JWT_SECRETO` (texto largo al azar: `openssl rand -hex 32`) |
 
 ## Archivos
 
@@ -86,8 +87,9 @@ Una fila por monitor `en_uso` de la ubicación, ordenada por id, con su última 
 
 | Caso | Respuesta |
 |---|---|
+| Sin token, token vencido o falso | 401 `{ "mensaje": "Inicia sesión de nuevo." }` |
 | ID que no es un entero positivo (`abc`, `0`, `1.5`) | 400 `{ "mensaje": "Ubicación no válida." }` |
-| Ubicación inexistente | 404 `{ "mensaje": "Ubicación no encontrada." }` |
+| Ubicación de otro cliente, inexistente o pedida por el admin | 403 `{ "mensaje": "No tienes permiso." }` (no se distingue para no revelar qué ubicaciones existen) |
 | Ubicación sin nodos en uso | 200 `[]` |
 | Falla de la base | 500 `{ "mensaje": "No se pudieron consultar los datos. Intenta de nuevo." }`, y el error queda en el log |
 
@@ -96,6 +98,52 @@ Una fila por monitor `en_uso` de la ubicación, ordenada por id, con su última 
 Los nodos WebSocket de Node-RED escuchan una ruta fija, así que hay un solo canal para todas las ubicaciones. Cada lectura guardada se envía como `{ tipo: "lectura", ubicacionId, dispositivoId, fecha, temperatura, humedad, presion, rsR0, nivelAire }`, con los mismos valores y la misma regla de `nivelAire` que `/ultimas`. El frontend (`useTiempoReal`) se queda solo con los mensajes de su ubicación.
 
 Ese filtro del navegador **no es una medida de seguridad**: hoy cualquiera que abra el canal recibe las lecturas de todos los clientes. Autenticar la conexión y enviar a cada cliente solo lo suyo queda para el login (#63).
+
+## Flujo «Sesión» (#63)
+
+```text
+[POST /api/login] → [Buscar usuario] → [Usuario] → [Verificar clave] ─┬→ respuesta
+                                                                    └→ [Último ingreso]
+[link in «verificar sesión»] → [Verificar token] → [link out «volver»]
+[POST /api/clave] → [link call «verificar sesión»] → [Validar clave nueva] → [Usuario de la sesión]
+  → [Comprobar clave actual] → [Guardar clave] → [Responder ok]
+[POST /api/logout] → [Responder ok]
+```
+
+Las funciones usan `bcryptjs` (`bcrypt`) y `jsonwebtoken` (`jwt`) desde **Setup → Modules**; Node-RED los instala solo al arrancar.
+
+### `POST /api/login` con `{ email, clave }`
+
+Devuelve `{ token, usuario }` con la forma de `frontend/src/api/demo/acceso.js`. El token es un JWT HS256 de 12 h con `{ sub, rol, cliente }`, firmado con `JWT_SECRETO`. El correo no distingue mayúsculas ni espacios. Guarda `usuarios.ultimo_login`.
+
+| Caso | Respuesta |
+|---|---|
+| Correo o contraseña vacíos | 400 `Escribe tu correo y tu contraseña.` |
+| Correo inexistente, clave incorrecta o usuario inactivo | 401 `Correo o contraseña incorrectos.` (el mismo mensaje y el mismo tiempo de bcrypt, para no revelar qué correos existen) |
+| Cliente suspendido (con la clave correcta) | 403 `Tu cuenta está suspendida. Comunícate con tu proveedor.` |
+
+### Proteger una ruta
+
+Justo después del `http in`, un **link call** a «verificar sesión». Siempre vuelve:
+
+- token válido → `msg.sesion = { sub, rol, cliente }`;
+- sin token, vencido o falso → `msg.sesion = null`, `statusCode = 401` y `{ mensaje: "Inicia sesión de nuevo." }`.
+
+La primera función de la ruta empieza con `if (!msg.sesion) return [null, msg];` (salida 2 al `http response`). Así nunca queda un mensaje esperando en el link call. Después:
+
+- rutas `/api/admin/...`: si `msg.sesion.rol !== 'admin'` → 403 `No tienes permiso.`;
+- rutas de una ubicación o un dispositivo: `AND cliente_id = $n` con `msg.sesion.cliente`; sin filas → 403 (no 404), así un cliente nunca ve datos de otro.
+
+### `POST /api/clave` (protegida) con `{ actual?, nueva }`
+
+- `nueva`: de 8 a 72 caracteres (72 es el límite de bcrypt), con letras y números.
+- `actual` es obligatoria, salvo si el usuario tiene `debe_cambiar_clave` (primer ingreso con contraseña temporal, pantalla «Crear contraseña»). Así un token robado no basta para cambiar la contraseña.
+- Guarda `bcrypt.hashSync(nueva, 10)` y `debe_cambiar_clave = false`. Responde `{ ok: true }`.
+- Contraseña actual incorrecta → **400** `La contraseña actual no es correcta.` No es 401 porque el frontend cierra la sesión ante cualquier 401.
+
+### `POST /api/logout`
+
+Responde `{ ok: true }`. El token se borra en el navegador; no hay lista de tokens revocados, así que un token sigue valiendo hasta que vence (12 h).
 
 ## Calidad del aire (#53)
 
@@ -133,7 +181,9 @@ docker exec postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "SELEC
 Ver la API y escuchar el WebSocket (Node.js 22 trae `WebSocket`):
 
 ```bash
-curl -s localhost:1880/api/ubicaciones/1/ultimas
+TOKEN=$(curl -s -X POST localhost:1880/api/login -H "Content-Type: application/json" \
+  -d '{"email":"direccion@redvallealto.edu.bo","clave":"telemon123"}' | node -p "JSON.parse(require('fs').readFileSync(0)).token")
+curl -s localhost:1880/api/ubicaciones/1/ultimas -H "Authorization: Bearer $TOKEN"
 node -e "const ws = new WebSocket('ws://localhost:1880/ws/lecturas'); ws.onmessage = (e) => console.log(e.data);"
 ```
 
@@ -141,4 +191,4 @@ Con el segundo comando abierto, cada lectura publicada aparece como `{"tipo":"le
 
 Para probar Rs/R0 con un R0 de prueba: `UPDATE dispositivos SET mq135_r0_kohm = 10.5 WHERE id = 1;` y publicar con `mq135_v` 0.421, 0.62 y 1.2 (bueno 1.002, moderado 0.651, malo 0.292). Al terminar hay que volver a dejarlo como estaba: `UPDATE dispositivos SET mq135_r0_kohm = NULL WHERE id = 1;`.
 
-**Responsable:** Garnica Salazar, L.
+**Responsables:** Garnica Salazar, L. (recepción, API y WebSocket) · Bermudez Torrico, V. (sesión).

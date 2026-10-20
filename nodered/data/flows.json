@@ -158,7 +158,7 @@
         "y": 80,
         "wires": [
             [
-                "f2e4d6c8b0a1c205"
+                "5e5104a1c0de0019"
             ]
         ]
     },
@@ -167,7 +167,7 @@
         "type": "function",
         "z": "b2d4f6a8c0e1f302",
         "name": "Validar ubicación",
-        "func": "const texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) ? Number(texto) : null;\nif (id === null || id > 2147483647) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Ubicación no válida.' };\n    return [null, msg];\n}\nmsg.query = `SELECT d.id AS dispositivo_id, d.nombre, l.fecha_hora, l.temperatura, l.humedad, l.presion,\n  l.mq135_v, l.rs_r0, l.nivel_aire,\n  l.fecha_hora > now() - make_interval(secs => u.espera_sin_conexion_s) AS conectado\nFROM ubicaciones u\nLEFT JOIN dispositivos d ON d.ubicacion_id = u.id AND d.estado = 'en_uso'\nLEFT JOIN LATERAL (\n  SELECT fecha_hora, temperatura, humedad, presion, mq135_v, rs_r0, nivel_aire\n  FROM lecturas\n  WHERE dispositivo_id = d.id AND ubicacion_id = u.id\n  ORDER BY fecha_hora DESC, id DESC\n  LIMIT 1\n) l ON true\nWHERE u.id = $1\nORDER BY d.id`;\nmsg.params = [id];\nreturn [msg, null];",
+        "func": "if (!msg.sesion) return [null, msg];\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) ? Number(texto) : null;\nif (id === null || id > 2147483647) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Ubicación no válida.' };\n    return [null, msg];\n}\nmsg.query = `SELECT d.id AS dispositivo_id, d.nombre, l.fecha_hora, l.temperatura, l.humedad, l.presion,\n  l.mq135_v, l.rs_r0, l.nivel_aire,\n  l.fecha_hora > now() - make_interval(secs => u.espera_sin_conexion_s) AS conectado\nFROM ubicaciones u\nLEFT JOIN dispositivos d ON d.ubicacion_id = u.id AND d.estado = 'en_uso'\nLEFT JOIN LATERAL (\n  SELECT fecha_hora, temperatura, humedad, presion, mq135_v, rs_r0, nivel_aire\n  FROM lecturas\n  WHERE dispositivo_id = d.id AND ubicacion_id = u.id\n  ORDER BY fecha_hora DESC, id DESC\n  LIMIT 1\n) l ON true\nWHERE u.id = $1 AND u.cliente_id = $2\nORDER BY d.id`;\nmsg.params = [id, msg.sesion.cliente];\nreturn [msg, null];",
         "outputs": 2,
         "timeout": 0,
         "noerr": 0,
@@ -208,7 +208,7 @@
         "type": "function",
         "z": "b2d4f6a8c0e1f302",
         "name": "Formatear respuesta",
-        "func": "if (msg.payload.length === 0) {\n    msg.statusCode = 404;\n    msg.payload = { mensaje: 'Ubicación no encontrada.' };\n    return msg;\n}\nconst numero = (valor) => (valor === null ? null : Number(valor));\nmsg.payload = msg.payload\n    .filter((f) => f.dispositivo_id !== null)\n    .map((f) => ({\n        dispositivoId: f.dispositivo_id,\n        nombre: f.nombre,\n        conectado: f.conectado === true,\n        fecha: f.fecha_hora === null ? null : new Date(f.fecha_hora).toISOString(),\n        temperatura: numero(f.temperatura),\n        humedad: numero(f.humedad),\n        presion: numero(f.presion),\n        rsR0: numero(f.rs_r0),\n        nivelAire: f.nivel_aire ?? (f.mq135_v !== null ? 'sin_calibrar' : null),\n    }));\nreturn msg;",
+        "func": "if (msg.payload.length === 0) {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return msg;\n}\nconst numero = (valor) => (valor === null ? null : Number(valor));\nmsg.payload = msg.payload\n    .filter((f) => f.dispositivo_id !== null)\n    .map((f) => ({\n        dispositivoId: f.dispositivo_id,\n        nombre: f.nombre,\n        conectado: f.conectado === true,\n        fecha: f.fecha_hora === null ? null : new Date(f.fecha_hora).toISOString(),\n        temperatura: numero(f.temperatura),\n        humedad: numero(f.humedad),\n        presion: numero(f.presion),\n        rsR0: numero(f.rs_r0),\n        nivelAire: f.nivel_aire ?? (f.mq135_v !== null ? 'sin_calibrar' : null),\n    }));\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -299,6 +299,454 @@
         "x": 400,
         "y": 240,
         "wires": []
+    },
+    {
+        "id": "5e5104a1c0de0001",
+        "type": "tab",
+        "label": "Sesión",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "5e5104a1c0de0002",
+        "type": "http response",
+        "z": "5e5104a1c0de0001",
+        "x": 1140,
+        "y": 80,
+        "wires": [],
+        "name": "",
+        "statusCode": "",
+        "headers": {}
+    },
+    {
+        "id": "5e5104a1c0de0003",
+        "type": "http in",
+        "z": "5e5104a1c0de0001",
+        "x": 150,
+        "y": 80,
+        "wires": [
+            [
+                "5e5104a1c0de0004"
+            ]
+        ],
+        "name": "",
+        "url": "/api/login",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": ""
+    },
+    {
+        "id": "5e5104a1c0de0004",
+        "type": "function",
+        "z": "5e5104a1c0de0001",
+        "x": 360,
+        "y": 80,
+        "wires": [
+            [
+                "5e5104a1c0de0005"
+            ],
+            [
+                "5e5104a1c0de0002"
+            ]
+        ],
+        "name": "Buscar usuario",
+        "func": "const email = String(msg.payload?.email ?? '').trim().toLowerCase();\nconst clave = String(msg.payload?.clave ?? '');\nif (!email || !clave) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Escribe tu correo y tu contraseña.' };\n    return [null, msg];\n}\nmsg.clave = clave;\nmsg.query = `SELECT u.id, u.nombre, u.password_hash, u.debe_cambiar_clave, u.activo, r.nombre AS rol,\n  c.id AS cliente_id, c.nombre AS organizacion, c.suspendido_en,\n  (SELECT count(*) FROM dispositivos d WHERE d.cliente_id = c.id AND d.estado = 'en_uso')::int AS monitores,\n  (SELECT count(*) FROM dispositivos d WHERE d.cliente_id = c.id AND d.estado = 'reservado')::int AS reservados\nFROM usuarios u\nJOIN roles r ON r.id = u.rol_id\nLEFT JOIN clientes c ON c.id = u.cliente_id\nWHERE u.email = $1`;\nmsg.params = [email];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": []
+    },
+    {
+        "id": "5e5104a1c0de0005",
+        "type": "postgresql",
+        "z": "5e5104a1c0de0001",
+        "x": 560,
+        "y": 80,
+        "wires": [
+            [
+                "5e5104a1c0de0006"
+            ]
+        ],
+        "name": "Usuario",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1
+    },
+    {
+        "id": "5e5104a1c0de0006",
+        "type": "function",
+        "z": "5e5104a1c0de0001",
+        "x": 760,
+        "y": 80,
+        "wires": [
+            [
+                "5e5104a1c0de0002"
+            ],
+            [
+                "5e5104a1c0de0007"
+            ]
+        ],
+        "name": "Verificar clave",
+        "func": "const u = msg.payload[0];\nconst clave = msg.clave;\ndelete msg.clave;\nconst negar = (estado, mensaje) => {\n    msg.statusCode = estado;\n    msg.payload = { mensaje };\n    return [msg, null];\n};\nconst hash = u?.password_hash ?? '$2b$10$aTC7Sq47W4HsWDvtYeJak.SnUodQeZPAlZbavaVffbt2qy/184YSq';\nconst coincide = bcrypt.compareSync(clave, hash);\nif (!u || !u.activo || !coincide) {\n    return negar(401, 'Correo o contraseña incorrectos.');\n}\nif (u.suspendido_en) {\n    return negar(403, 'Tu cuenta está suspendida. Comunícate con tu proveedor.');\n}\nconst rol = u.rol === 'admin_plataforma' ? 'admin' : 'cliente';\nconst usuario = {\n    id: u.id,\n    nombre: u.nombre,\n    organizacion: u.organizacion ?? 'TeleMon',\n    rol,\n    debeCambiarClave: u.debe_cambiar_clave,\n    monitores: u.monitores ?? 0,\n    monitoresReservados: u.reservados ?? 0,\n};\nconst token = jwt.sign({ sub: u.id, rol, cliente: u.cliente_id }, env.get('JWT_SECRETO'), {\n    algorithm: 'HS256',\n    expiresIn: '12h',\n});\nmsg.payload = { token, usuario };\nreturn [msg, { query: 'UPDATE usuarios SET ultimo_login = now() WHERE id = $1', params: [u.id] }];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "bcrypt",
+                "module": "bcryptjs"
+            },
+            {
+                "var": "jwt",
+                "module": "jsonwebtoken"
+            }
+        ]
+    },
+    {
+        "id": "5e5104a1c0de0007",
+        "type": "postgresql",
+        "z": "5e5104a1c0de0001",
+        "x": 980,
+        "y": 140,
+        "wires": [],
+        "name": "Último ingreso",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1
+    },
+    {
+        "id": "5e5104a1c0de0008",
+        "type": "link in",
+        "z": "5e5104a1c0de0001",
+        "x": 155,
+        "y": 240,
+        "wires": [
+            [
+                "5e5104a1c0de0009"
+            ]
+        ],
+        "name": "verificar sesión",
+        "links": []
+    },
+    {
+        "id": "5e5104a1c0de0009",
+        "type": "function",
+        "z": "5e5104a1c0de0001",
+        "x": 360,
+        "y": 240,
+        "wires": [
+            [
+                "5e5104a1c0de000a"
+            ]
+        ],
+        "name": "Verificar token",
+        "func": "const cabecera = msg.req?.headers?.authorization ?? '';\nconst token = cabecera.startsWith('Bearer ') ? cabecera.slice(7) : '';\ntry {\n    msg.sesion = jwt.verify(token, env.get('JWT_SECRETO'), { algorithms: ['HS256'] });\n} catch {\n    msg.sesion = null;\n    msg.statusCode = 401;\n    msg.payload = { mensaje: 'Inicia sesión de nuevo.' };\n}\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "jwt",
+                "module": "jsonwebtoken"
+            }
+        ]
+    },
+    {
+        "id": "5e5104a1c0de000a",
+        "type": "link out",
+        "z": "5e5104a1c0de0001",
+        "x": 555,
+        "y": 240,
+        "wires": [],
+        "name": "volver",
+        "mode": "return",
+        "links": []
+    },
+    {
+        "id": "5e5104a1c0de000b",
+        "type": "http response",
+        "z": "5e5104a1c0de0001",
+        "x": 1340,
+        "y": 340,
+        "wires": [],
+        "name": "",
+        "statusCode": "",
+        "headers": {}
+    },
+    {
+        "id": "5e5104a1c0de000c",
+        "type": "http in",
+        "z": "5e5104a1c0de0001",
+        "x": 150,
+        "y": 340,
+        "wires": [
+            [
+                "5e5104a1c0de000d"
+            ]
+        ],
+        "name": "",
+        "url": "/api/clave",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": ""
+    },
+    {
+        "id": "5e5104a1c0de000d",
+        "type": "link call",
+        "z": "5e5104a1c0de0001",
+        "x": 340,
+        "y": 340,
+        "wires": [
+            [
+                "5e5104a1c0de000e"
+            ]
+        ],
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30"
+    },
+    {
+        "id": "5e5104a1c0de000e",
+        "type": "function",
+        "z": "5e5104a1c0de0001",
+        "x": 550,
+        "y": 340,
+        "wires": [
+            [
+                "5e5104a1c0de000f"
+            ],
+            [
+                "5e5104a1c0de000b"
+            ]
+        ],
+        "name": "Validar clave nueva",
+        "func": "if (!msg.sesion) return [null, msg];\nconst actual = msg.payload?.actual;\nconst nueva = msg.payload?.nueva;\nconst negar = (mensaje) => {\n    msg.statusCode = 400;\n    msg.payload = { mensaje };\n    return [null, msg];\n};\nif (actual !== undefined && (typeof actual !== 'string' || actual === '')) {\n    return negar('Escribe tu contraseña actual.');\n}\nif (typeof nueva !== 'string' || nueva.length < 8) {\n    return negar('La contraseña debe tener al menos 8 caracteres.');\n}\nif (nueva.length > 72) {\n    return negar('La contraseña puede tener hasta 72 caracteres.');\n}\nif (!/[A-Za-z]/.test(nueva) || !/[0-9]/.test(nueva)) {\n    return negar('La contraseña debe tener letras y números.');\n}\nmsg.claves = { actual, nueva };\nmsg.query = 'SELECT password_hash, debe_cambiar_clave, activo FROM usuarios WHERE id = $1';\nmsg.params = [msg.sesion.sub];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": []
+    },
+    {
+        "id": "5e5104a1c0de000f",
+        "type": "postgresql",
+        "z": "5e5104a1c0de0001",
+        "x": 770,
+        "y": 340,
+        "wires": [
+            [
+                "5e5104a1c0de0010"
+            ]
+        ],
+        "name": "Usuario de la sesión",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1
+    },
+    {
+        "id": "5e5104a1c0de0010",
+        "type": "function",
+        "z": "5e5104a1c0de0001",
+        "x": 990,
+        "y": 340,
+        "wires": [
+            [
+                "5e5104a1c0de0011"
+            ],
+            [
+                "5e5104a1c0de000b"
+            ]
+        ],
+        "name": "Comprobar clave actual",
+        "func": "const u = msg.payload[0];\nconst { actual, nueva } = msg.claves;\ndelete msg.claves;\nconst negar = (estado, mensaje) => {\n    msg.statusCode = estado;\n    msg.payload = { mensaje };\n    return [null, msg];\n};\nif (!u || !u.activo) {\n    return negar(401, 'Inicia sesión de nuevo.');\n}\nif (actual === undefined && !u.debe_cambiar_clave) {\n    return negar(400, 'Escribe tu contraseña actual.');\n}\nif (actual !== undefined && !bcrypt.compareSync(actual, u.password_hash)) {\n    return negar(400, 'La contraseña actual no es correcta.');\n}\nmsg.query = 'UPDATE usuarios SET password_hash = $1, debe_cambiar_clave = false WHERE id = $2';\nmsg.params = [bcrypt.hashSync(nueva, 10), msg.sesion.sub];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "bcrypt",
+                "module": "bcryptjs"
+            }
+        ]
+    },
+    {
+        "id": "5e5104a1c0de0011",
+        "type": "postgresql",
+        "z": "5e5104a1c0de0001",
+        "x": 1000,
+        "y": 420,
+        "wires": [
+            [
+                "5e5104a1c0de0012"
+            ]
+        ],
+        "name": "Guardar clave",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1
+    },
+    {
+        "id": "5e5104a1c0de0012",
+        "type": "function",
+        "z": "5e5104a1c0de0001",
+        "x": 1190,
+        "y": 420,
+        "wires": [
+            [
+                "5e5104a1c0de000b"
+            ]
+        ],
+        "name": "Responder ok",
+        "func": "msg.statusCode = 200;\nmsg.payload = { ok: true };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": []
+    },
+    {
+        "id": "5e5104a1c0de0013",
+        "type": "http in",
+        "z": "5e5104a1c0de0001",
+        "x": 150,
+        "y": 500,
+        "wires": [
+            [
+                "5e5104a1c0de0014"
+            ]
+        ],
+        "name": "",
+        "url": "/api/logout",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": ""
+    },
+    {
+        "id": "5e5104a1c0de0014",
+        "type": "function",
+        "z": "5e5104a1c0de0001",
+        "x": 360,
+        "y": 500,
+        "wires": [
+            [
+                "5e5104a1c0de0015"
+            ]
+        ],
+        "name": "Responder ok",
+        "func": "msg.statusCode = 200;\nmsg.payload = { ok: true };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": []
+    },
+    {
+        "id": "5e5104a1c0de0015",
+        "type": "http response",
+        "z": "5e5104a1c0de0001",
+        "x": 560,
+        "y": 500,
+        "wires": [],
+        "name": "",
+        "statusCode": "",
+        "headers": {}
+    },
+    {
+        "id": "5e5104a1c0de0016",
+        "type": "catch",
+        "z": "5e5104a1c0de0001",
+        "x": 160,
+        "y": 600,
+        "wires": [
+            [
+                "5e5104a1c0de0017"
+            ]
+        ],
+        "name": "Errores de la sesión",
+        "scope": [
+            "5e5104a1c0de0004",
+            "5e5104a1c0de0005",
+            "5e5104a1c0de0006",
+            "5e5104a1c0de0007",
+            "5e5104a1c0de0009",
+            "5e5104a1c0de000e",
+            "5e5104a1c0de000f",
+            "5e5104a1c0de0010",
+            "5e5104a1c0de0011"
+        ],
+        "uncaught": false
+    },
+    {
+        "id": "5e5104a1c0de0017",
+        "type": "function",
+        "z": "5e5104a1c0de0001",
+        "x": 380,
+        "y": 600,
+        "wires": [
+            [
+                "5e5104a1c0de0018"
+            ]
+        ],
+        "name": "Responder error",
+        "func": "node.error(`${msg.error.source.name || msg.error.source.type}: ${msg.error.message}`);\nmsg.statusCode = 500;\nmsg.payload = { mensaje: 'No se pudo completar la operación. Intenta de nuevo.' };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": []
+    },
+    {
+        "id": "5e5104a1c0de0018",
+        "type": "http response",
+        "z": "5e5104a1c0de0001",
+        "x": 580,
+        "y": 600,
+        "wires": [],
+        "name": "",
+        "statusCode": "",
+        "headers": {}
+    },
+    {
+        "id": "5e5104a1c0de0019",
+        "type": "link call",
+        "z": "b2d4f6a8c0e1f302",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 340,
+        "y": 40,
+        "wires": [
+            [
+                "f2e4d6c8b0a1c205"
+            ]
+        ]
     },
     {
         "id": "3e8d1f2a6b7c9d02",
