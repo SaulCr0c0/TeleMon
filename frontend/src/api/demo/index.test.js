@@ -39,4 +39,24 @@ describe('datos de ejemplo', () => {
     const b = await resolverDemo('GET', '/api/ubicaciones');
     expect(b[0].nombre).not.toBe('cambiado');
   });
+
+  it.each(['', '   ', null, 64])('rechaza crear una ubicación con nombre %j', async (nombre) => {
+    const antes = await resolverDemo('GET', '/api/ubicaciones');
+    await expect(
+      resolverDemo('POST', '/api/ubicaciones', { localidad: 'Punata', nombre }),
+    ).rejects.toMatchObject({ estado: 400 });
+    expect(await resolverDemo('GET', '/api/ubicaciones')).toEqual(antes);
+  });
+
+  it('rechaza renombrar en blanco sin modificar otros campos de la ubicación', async () => {
+    const antes = await resolverDemo('GET', '/api/ubicaciones/1');
+    await expect(
+      resolverDemo('PATCH', '/api/ubicaciones/1', {
+        nombre: '   ',
+        localidad: 'Otra localidad',
+        archivada: true,
+      }),
+    ).rejects.toMatchObject({ estado: 400 });
+    expect(await resolverDemo('GET', '/api/ubicaciones/1')).toEqual(antes);
+  });
 });
