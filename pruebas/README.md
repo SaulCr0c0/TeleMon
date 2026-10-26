@@ -1,5 +1,22 @@
 # Pruebas de carga MQTT — #36
 
+## API de ubicaciones (#64)
+
+`test_ubicaciones.py` prueba las rutas HTTP reales de Node-RED contra PostgreSQL 17. Crea una red y dos contenedores temporales con nombres únicos; no conecta con el PostgreSQL de desarrollo ni modifica sus datos. Los recursos de prueba se eliminan al terminar, incluso si falla una prueba.
+
+Desde la raíz, con Docker funcionando y la imagen del backend construida:
+
+```bash
+docker compose build nodered
+python -m unittest discover -s pruebas -p test_ubicaciones.py -v
+```
+
+El módulo `jsonwebtoken` de #63 debe estar instalado en `nodered/data/node_modules` (Node-RED lo instala al arrancar normalmente). Las pruebas reutilizan ese módulo en modo de solo lectura; no descargan dependencias de Python. Si la imagen del backend tiene otro nombre, define `TELEMON_NODERED_IMAGE` con su etiqueta.
+
+Se comprueban las cuatro rutas de ubicaciones, aislamiento entre clientes, tokens ausentes/falsos/vencidos, conteos de nodos y alertas, monitores trasladados o sin lecturas, creación de umbrales, entradas inválidas, archivado sin pérdida de datos y reversión completa ante un fallo al crear umbrales.
+
+## Carga MQTT
+
 `carga.py` simula monitores publicando en `telemetria/<ID>/lecturas` con MQTT 3.1.1 y QoS 0. Usa un cliente oyente adicional para medir el recorrido publicador → broker → oyente. No mide persistencia en PostgreSQL ni actualización del navegador.
 
 Las pruebas finales de 10, 50, 100 y 500 clientes están documentadas en [RESULTADOS.md](RESULTADOS.md).

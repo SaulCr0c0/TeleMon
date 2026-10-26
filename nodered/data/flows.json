@@ -1562,5 +1562,268 @@
         "type": "websocket-listener",
         "path": "/ws/lecturas",
         "wholemsg": "false"
+    },
+    {
+        "id": "64ab1cac10de0001",
+        "type": "tab",
+        "label": "Ubicaciones",
+        "disabled": false,
+        "info": "API de ubicaciones por cliente (#64).",
+        "env": []
+    },
+    {
+        "id": "64ab1cac10de0002",
+        "type": "http in",
+        "z": "64ab1cac10de0001",
+        "name": "",
+        "url": "/api/ubicaciones",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 80,
+        "wires": [
+            [
+                "64ab1cac10de0003"
+            ]
+        ]
+    },
+    {
+        "id": "64ab1cac10de0003",
+        "type": "link call",
+        "z": "64ab1cac10de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 450,
+        "y": 80,
+        "wires": [
+            [
+                "64ab1cac10de000a"
+            ]
+        ]
+    },
+    {
+        "id": "64ab1cac10de0004",
+        "type": "http in",
+        "z": "64ab1cac10de0001",
+        "name": "",
+        "url": "/api/ubicaciones/:id",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 160,
+        "wires": [
+            [
+                "64ab1cac10de0005"
+            ]
+        ]
+    },
+    {
+        "id": "64ab1cac10de0005",
+        "type": "link call",
+        "z": "64ab1cac10de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 450,
+        "y": 160,
+        "wires": [
+            [
+                "64ab1cac10de000a"
+            ]
+        ]
+    },
+    {
+        "id": "64ab1cac10de0006",
+        "type": "http in",
+        "z": "64ab1cac10de0001",
+        "name": "",
+        "url": "/api/ubicaciones",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 240,
+        "wires": [
+            [
+                "64ab1cac10de0007"
+            ]
+        ]
+    },
+    {
+        "id": "64ab1cac10de0007",
+        "type": "link call",
+        "z": "64ab1cac10de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 450,
+        "y": 240,
+        "wires": [
+            [
+                "64ab1cac10de000a"
+            ]
+        ]
+    },
+    {
+        "id": "64ab1cac10de0008",
+        "type": "http in",
+        "z": "64ab1cac10de0001",
+        "name": "",
+        "url": "/api/ubicaciones/:id",
+        "method": "patch",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 320,
+        "wires": [
+            [
+                "64ab1cac10de0009"
+            ]
+        ]
+    },
+    {
+        "id": "64ab1cac10de0009",
+        "type": "link call",
+        "z": "64ab1cac10de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 450,
+        "y": 320,
+        "wires": [
+            [
+                "64ab1cac10de000a"
+            ]
+        ]
+    },
+    {
+        "id": "64ab1cac10de000a",
+        "type": "function",
+        "z": "64ab1cac10de0001",
+        "name": "Preparar ubicación",
+        "func": "if (!msg.sesion) return [null, msg];\n    const negar = (estado, mensaje) => {\n        msg.statusCode = estado;\n        msg.payload = { mensaje };\n        return [null, msg];\n    };\n    const cliente = msg.sesion.cliente;\n    if (msg.sesion.rol !== 'cliente' || !Number.isInteger(cliente) || cliente < 1 || cliente > 2147483647) {\n        return negar(403, 'No tienes permiso.');\n    }\n    const metodo = msg.req.method.toUpperCase();\n    const textoId = msg.req.params.id;\n    const detalle = textoId !== undefined;\n    let id;\n    if (detalle) {\n        id = /^[1-9][0-9]{0,9}$/.test(textoId) ? Number(textoId) : null;\n        if (id === null || id > 2147483647) return negar(400, 'Ubicación no válida.');\n    }\n    msg.ubicaciones = { lista: metodo === 'GET' && !detalle, creada: metodo === 'POST' };\n    msg.params = [cliente];\n    let elegidas;\n    let iniciales = '';\n    if (metodo === 'GET') {\n        elegidas = 'SELECT * FROM ubicaciones WHERE cliente_id = $1';\n        if (detalle) {\n            elegidas += ' AND id = $2';\n            msg.params.push(id);\n        } else {\n            elegidas += ' AND NOT archivada';\n        }\n    } else {\n        const cuerpo = msg.payload;\n        if (!cuerpo || typeof cuerpo !== 'object' || Array.isArray(cuerpo) || Buffer.isBuffer(cuerpo)) {\n            return negar(400, 'Envía un objeto JSON con los datos de la ubicación.');\n        }\n        const campos = Object.keys(cuerpo);\n        const permitidos = metodo === 'POST' ? ['nombre', 'localidad'] : ['nombre', 'localidad', 'archivada'];\n        if (campos.some((campo) => !permitidos.includes(campo))) {\n            return negar(400, 'La petición contiene campos no permitidos.');\n        }\n        const tiene = (campo) => Object.prototype.hasOwnProperty.call(cuerpo, campo);\n        if ((metodo === 'POST' || tiene('nombre')) &&\n            (typeof cuerpo.nombre !== 'string' || !cuerpo.nombre.trim())) {\n            return negar(400, 'Escribe el nombre de la ubicación.');\n        }\n        if (tiene('localidad') && typeof cuerpo.localidad !== 'string') {\n            return negar(400, 'La localidad debe ser un texto.');\n        }\n        if (tiene('archivada') && typeof cuerpo.archivada !== 'boolean') {\n            return negar(400, 'El campo archivada debe ser verdadero o falso.');\n        }\n        if (metodo === 'POST') {\n            msg.params.push(cuerpo.nombre.trim(), (cuerpo.localidad ?? '').trim());\n            elegidas = `INSERT INTO ubicaciones (cliente_id, nombre, localidad)\nVALUES ($1, $2, $3) RETURNING *`;\n            // Igual que los valores iniciales de database/02_datos.sql; todo se crea en una sentencia.\n            iniciales = `, umbrales_iniciales AS (\n  INSERT INTO umbrales (ubicacion_id, variable, valor_min, valor_max, activo)\n  SELECT u.id, v.variable, v.valor_min, v.valor_max, v.activo\n  FROM elegidas u\n  CROSS JOIN (VALUES\n    ('temperatura', 18, 28, true),\n    ('humedad', 30, 60, true),\n    ('presion', 740, 760, false),\n    ('calidad_aire', 0.5, NULL, true)\n  ) AS v (variable, valor_min, valor_max, activo)\n)`;\n        } else {\n            if (campos.length === 0) return negar(400, 'Envía al menos un cambio para la ubicación.');\n            msg.params.push(id);\n            const cambios = campos.map((campo) => {\n                msg.params.push(typeof cuerpo[campo] === 'string' ? cuerpo[campo].trim() : cuerpo[campo]);\n                // El nombre de columna proviene exclusivamente de la lista permitida.\n                return `${campo} = $${msg.params.length}`;\n            });\n            elegidas = `UPDATE ubicaciones SET ${cambios.join(', ')}\nWHERE cliente_id = $1 AND id = $2 RETURNING *`;\n        }\n    }\n    msg.query = `WITH elegidas AS (${elegidas})${iniciales}\nSELECT u.id, u.localidad, u.nombre, u.archivada,\n  n.total, n.en_linea, a.activas AS alertas_activas\nFROM elegidas u\nLEFT JOIN LATERAL (\n  SELECT count(*)::int AS total,\n    count(*) FILTER (WHERE l.fecha_hora > now() - make_interval(secs => u.espera_sin_conexion_s))::int AS en_linea\n  FROM dispositivos d\n  LEFT JOIN LATERAL (\n    SELECT fecha_hora FROM lecturas\n    WHERE dispositivo_id = d.id AND ubicacion_id = u.id\n    ORDER BY fecha_hora DESC, id DESC LIMIT 1\n  ) l ON true\n  WHERE d.ubicacion_id = u.id AND d.cliente_id = u.cliente_id AND d.estado = 'en_uso'\n) n ON true\nLEFT JOIN LATERAL (\n  SELECT count(*)::int AS activas FROM alertas\n  WHERE ubicacion_id = u.id AND cerrada_en IS NULL\n) a ON true\nORDER BY u.id`;\n    return [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 700,
+        "y": 160,
+        "wires": [
+            [
+                "64ab1cac10de000b"
+            ],
+            [
+                "64ab1cac10de000d"
+            ]
+        ]
+    },
+    {
+        "id": "64ab1cac10de000b",
+        "type": "postgresql",
+        "z": "64ab1cac10de0001",
+        "name": "Consultar o guardar ubicación",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 980,
+        "y": 160,
+        "wires": [
+            [
+                "64ab1cac10de000c"
+            ]
+        ]
+    },
+    {
+        "id": "64ab1cac10de000c",
+        "type": "function",
+        "z": "64ab1cac10de0001",
+        "name": "Responder ubicación",
+        "func": "const { lista, creada } = msg.ubicaciones;\n    msg.headers = { 'Cache-Control': 'no-store' };\n    if (!lista && msg.payload.length === 0) {\n        msg.statusCode = 403;\n        msg.payload = { mensaje: 'No tienes permiso.' };\n        return msg;\n    }\n    const ubicaciones = msg.payload.map((u) => ({\n        id: u.id,\n        localidad: u.localidad,\n        nombre: u.nombre,\n        archivada: u.archivada,\n        nodos: { total: Number(u.total), enLinea: Number(u.en_linea) },\n        alertasActivas: Number(u.alertas_activas),\n    }));\n    msg.statusCode = creada ? 201 : 200;\n    msg.payload = lista ? ubicaciones : ubicaciones[0];\n    if (creada) msg.headers.Location = `/api/ubicaciones/${msg.payload.id}`;\n    delete msg.query;\n    delete msg.params;\n    delete msg.pgsql;\n    delete msg.ubicaciones;\n    return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1240,
+        "y": 160,
+        "wires": [
+            [
+                "64ab1cac10de000d"
+            ]
+        ]
+    },
+    {
+        "id": "64ab1cac10de000d",
+        "type": "http response",
+        "z": "64ab1cac10de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1460,
+        "y": 240,
+        "wires": []
+    },
+    {
+        "id": "64ab1cac10de000e",
+        "type": "catch",
+        "z": "64ab1cac10de0001",
+        "name": "Errores de ubicaciones",
+        "scope": [
+            "64ab1cac10de000a",
+            "64ab1cac10de000b",
+            "64ab1cac10de000c",
+            "64ab1cac10de0003",
+            "64ab1cac10de0005",
+            "64ab1cac10de0007",
+            "64ab1cac10de0009"
+        ],
+        "uncaught": false,
+        "x": 720,
+        "y": 400,
+        "wires": [
+            [
+                "64ab1cac10de000f"
+            ]
+        ]
+    },
+    {
+        "id": "64ab1cac10de000f",
+        "type": "function",
+        "z": "64ab1cac10de0001",
+        "name": "Error de ubicaciones",
+        "func": "node.error(`Ubicaciones: ${msg.error?.source?.name || 'API'}: ${msg.error?.message || 'Error inesperado'}`);\n    msg.statusCode = 500;\n    msg.payload = { mensaje: 'No se pudieron guardar o consultar las ubicaciones. Intenta de nuevo.' };\n    msg.headers = { 'Cache-Control': 'no-store' };\n    return msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1010,
+        "y": 400,
+        "wires": [
+            [
+                "64ab1cac10de000d"
+            ]
+        ]
     }
 ]

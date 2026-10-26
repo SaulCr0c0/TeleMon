@@ -1,6 +1,6 @@
 # nodered
 
-Backend de TeleMon en Node-RED 4.0.9 con `node-red-contrib-postgresql`. Contiene la **recepción de lecturas** (#49), el **cálculo de Rs/R0** (#53), la **API de últimas lecturas** y el **WebSocket** `/ws/lecturas` (#54) la **sesión** con login, token y permisos (#63), el **inventario** de monitores (#66) y el **motor de alertas** UMBRAL y SENSOR (#69).
+Backend de TeleMon en Node-RED 4.0.9 con `node-red-contrib-postgresql`. Contiene la **recepción de lecturas** (#49), el **cálculo de Rs/R0** (#53), la **API de últimas lecturas** y el **WebSocket** `/ws/lecturas` (#54), la **sesión** con login, token y permisos (#63), la **API de ubicaciones** (#64), el **inventario** de monitores (#66) y el **motor de alertas** UMBRAL y SENSOR (#69).
 
 ## Levantar
 
@@ -99,6 +99,47 @@ Una fila por monitor `en_uso` de la ubicación, ordenada por id, con su última 
 Los nodos WebSocket de Node-RED escuchan una ruta fija, así que hay un solo canal para todas las ubicaciones. Cada lectura guardada se envía como `{ tipo: "lectura", ubicacionId, dispositivoId, fecha, temperatura, humedad, presion, rsR0, nivelAire }`, con los mismos valores y la misma regla de `nivelAire` que `/ultimas`. El frontend (`useTiempoReal`) se queda solo con los mensajes de su ubicación.
 
 Ese filtro del navegador **no es una medida de seguridad**: hoy cualquiera que abra el canal recibe las lecturas de todos los clientes. Autenticar la conexión y enviar a cada cliente solo lo suyo queda para el login (#63).
+
+## Flujo «Ubicaciones» (#64)
+
+Las cuatro rutas pasan por «verificar sesión» de #63. Requieren `Authorization: Bearer <token>` de un usuario con rol `cliente`. El cliente se obtiene del token y todas las consultas y modificaciones se restringen a él.
+
+| Método y ruta | Cuerpo JSON | Resultado |
+|---|---|---|
+| `GET /api/ubicaciones` | — | 200, lista de ubicaciones propias sin archivar, ordenada por id; `[]` si no hay |
+| `GET /api/ubicaciones/:id` | — | 200, detalle propio, incluso archivado, para el menú y el historial |
+| `POST /api/ubicaciones` | `{ "nombre": "Laboratorio", "localidad": "Punata" }` | 201, ubicación creada; `localidad` es opcional |
+| `PATCH /api/ubicaciones/:id` | Uno o más de `nombre`, `localidad`, `archivada` | 200, ubicación actualizada |
+
+Las respuestas individuales tienen esta forma (el listado es un arreglo de estos objetos):
+
+```json
+{
+  "id": 1,
+  "localidad": "Punata",
+  "nombre": "Escuela Adela Zamudio",
+  "archivada": false,
+  "nodos": { "total": 1, "enLinea": 1 },
+  "alertasActivas": 0
+}
+```
+
+- `nodos.total` cuenta solo monitores `en_uso` de esa ubicación y cliente. `enLinea` usa la última lectura del monitor **en esa ubicación**, dentro de `espera_sin_conexion_s`, igual que `/ultimas`. Un monitor trasladado no aparece en línea por una lectura de su ubicación anterior.
+- `alertasActivas` cuenta alertas de la ubicación con `cerrada_en IS NULL`. Los conteos se calculan por separado para evitar duplicarlos al juntar lecturas, nodos y alertas.
+- Crear una ubicación también crea sus cuatro umbrales iniciales, con los valores de `database/02_datos.sql`, en una única sentencia: si falla una parte, no se guarda ninguna.
+- Archivar (`{ "archivada": true }`) solo cambia esa bandera. Conserva la ubicación, sus nodos, umbrales, alertas y lecturas. Sigue accesible por su id para consultar el historial; `{ "archivada": false }` permite volver a mostrarla en el listado.
+- Se recortan los espacios de `nombre` y `localidad`. Un nombre vacío o no textual, una localidad no textual, `archivada` no booleana, un cambio vacío o un campo no permitido responden 400. No se acepta elegir el cliente desde el cuerpo.
+- Un id inválido responde 400; sin token o con token inválido/vencido, 401; rol no autorizado, ubicación ajena o inexistente, 403, siguiendo la convención de #63. Un fallo interno responde 500 con un mensaje legible y deja el detalle solo en el log.
+
+En la web, usa `VITE_MODO_DEMO=false` en `frontend/.env.local` y reinicia Vite para consultar esta API. La pantalla valida todos los nombres antes de enviar sus cambios.
+
+La verificación HTTP con Node-RED y PostgreSQL temporales se ejecuta desde la raíz:
+
+```bash
+python -m unittest discover -s pruebas -p test_ubicaciones.py -v
+```
+
+Requisitos y alcance: [pruebas de ubicaciones](../pruebas/README.md#api-de-ubicaciones-64).
 
 ## Flujo «Sesión» (#63)
 
