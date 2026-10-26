@@ -152,11 +152,16 @@ function FormularioAgregar({ ubicacionId, alAgregar }) {
       setError('Código no válido. Revisa la etiqueta del monitor.');
       return;
     }
+    const nombreNormalizado = nombre.trim();
+    if (!nombreNormalizado) {
+      setError('Escribe el nombre del nodo.');
+      return;
+    }
     setEnviando(true);
     try {
       const nodo = await api.post(`/api/ubicaciones/${ubicacionId}/dispositivos`, {
         codigo: normalizado,
-        nombre: nombre.trim() || 'Nuevo nodo',
+        nombre: nombreNormalizado,
       });
       alAgregar(nodo);
       setCodigo('');

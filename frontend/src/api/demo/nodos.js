@@ -1,10 +1,6 @@
 import { ErrorApi } from '../errores';
+import { normalizarCodigo } from '../../utils/validacion';
 import { MONITORES, NODOS, nuevoId } from './datos';
-
-const normalizar = (codigo = '') => {
-  const limpio = codigo.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  return limpio.length === 8 ? `${limpio.slice(0, 4)}-${limpio.slice(4)}` : limpio;
-};
 
 export default [
   [
@@ -20,7 +16,14 @@ export default [
     'POST',
     '/api/ubicaciones/:id/dispositivos',
     ({ id }, { codigo, nombre = '' }) => {
-      const monitor = MONITORES.find((m) => m.codigo === normalizar(codigo));
+      const normalizado = normalizarCodigo(codigo);
+      if (!normalizado) {
+        throw new ErrorApi(400, 'Código no válido. Revisa la etiqueta del monitor.');
+      }
+      if (typeof nombre !== 'string' || !nombre.trim()) {
+        throw new ErrorApi(400, 'Escribe el nombre del nodo.');
+      }
+      const monitor = MONITORES.find((m) => m.codigo === normalizado);
       if (!monitor) throw new ErrorApi(404, 'Código no válido. Revisa la etiqueta del monitor.');
       if (monitor.estado === 'en_uso') throw new ErrorApi(409, 'Este código ya está en uso.');
       if (monitor.estado !== 'reservado' || monitor.clienteId !== 1) {
@@ -29,7 +32,7 @@ export default [
       const nodo = {
         id: nuevoId(),
         ubicacionId: Number(id),
-        nombre: nombre.trim() || 'Nuevo nodo',
+        nombre: nombre.trim(),
         estado: 'en_uso',
         conectado: false,
         esperando: true,

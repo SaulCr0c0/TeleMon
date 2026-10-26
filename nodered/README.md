@@ -1,6 +1,6 @@
 # nodered
 
-Backend de TeleMon en Node-RED 4.0.9 con `node-red-contrib-postgresql`. Contiene la **recepción de lecturas** (#49), el **cálculo de Rs/R0** (#53), la **API de últimas lecturas** y el **WebSocket** `/ws/lecturas` (#54), la **sesión** con login, token y permisos (#63), la **API de ubicaciones** (#64), el **inventario** de monitores (#66) y el **motor de alertas** UMBRAL y SENSOR (#69).
+Backend de TeleMon en Node-RED 4.0.9 con `node-red-contrib-postgresql`. Contiene la **recepción de lecturas** (#49), el **cálculo de Rs/R0** (#53), la **API de últimas lecturas** y el **WebSocket** `/ws/lecturas` (#54), la **sesión** con login, token y permisos (#63), la **API de ubicaciones** (#64), el **inventario** de monitores (#66), la **activación por código** (#67) y el **motor de alertas** UMBRAL y SENSOR (#69).
 
 ## Levantar
 
@@ -136,7 +136,7 @@ En la web, usa `VITE_MODO_DEMO=false` en `frontend/.env.local` y reinicia Vite p
 La verificación HTTP con Node-RED y PostgreSQL temporales se ejecuta desde la raíz:
 
 ```bash
-python -m unittest discover -s pruebas -p test_ubicaciones.py -v
+python -B -m unittest discover -s pruebas -p test_ubicaciones.py -v
 ```
 
 Requisitos y alcance: [pruebas de ubicaciones](../pruebas/README.md#api-de-ubicaciones-64).
@@ -247,6 +247,56 @@ Reserva el monitor para un cliente (`clienteId`) o quita la reserva (`null`, vue
 | Monitor inexistente | 404 `Monitor no encontrado.` |
 | Monitor `en_uso`, `desactivado` o `retirado` | 409 `Solo se puede reservar un monitor disponible o reservado.` |
 | Cliente inexistente o suspendido | 404 o 409, como en el registro |
+
+## Flujo «Activación y nodos» (#67)
+
+```text
+[GET /api/ubicaciones/:id/dispositivos] ─┐
+                                      ├→ [verificar sesión] → [Preparar nodos o activación]
+[POST /api/ubicaciones/:id/dispositivos] ┘  → [Consultar o activar monitor] → [Responder nodos]
+```
+
+Ambas rutas requieren un token de **cliente** de #63. La ubicación debe pertenecer al cliente de la sesión. La pantalla Gestionar nodos utiliza las respuestas reales sin sustituir un 404 por una activación simulada.
+
+### `GET /api/ubicaciones/:id/dispositivos`
+
+Responde 200 con `{ "nodos": [...], "reservadosSinActivar": 1 }`. Lista los monitores `en_uso` y `desactivado` de esa ubicación y cliente, ordenados por id. El contador de reservas incluye todos los monitores `reservado` del cliente, aún sin activar.
+
+Cada nodo tiene `id`, `ubicacionId`, `nombre`, `estado`, `conectado`, `esperando`, `fecha`, `temperatura`, `humedad`, `presion`, `rsR0` y `nivelAire`. Se usa la última lectura **en esa ubicación**, con la misma espera de conexión que `/ultimas`. Sin lecturas, las variables y la fecha son nulas y `esperando` es verdadero; un nodo desactivado no aparece en línea. Una ubicación propia sin nodos devuelve `nodos: []`.
+
+### `POST /api/ubicaciones/:id/dispositivos`
+
+```json
+{ "codigo": "W3FJ-7KTA", "nombre": "Laboratorio" }
+```
+
+Normaliza el código a mayúsculas y acepta espacios o la ausencia del guion (`w3fj 7kta` → `W3FJ-7KTA`), sin aceptar otros caracteres. El nombre es obligatorio y se guarda sin espacios alrededor. Solo se permiten `codigo` y `nombre` en el cuerpo; el cliente y el usuario se toman de la sesión.
+
+Si el monitor está reservado para ese cliente, responde **201 con el nodo**, conservando su id del inventario. Lo deja `en_uso`, asigna `ubicacion_id`, `nombre`, `asignado_en` y `asignado_por`, y agrega un evento «Activado por el cliente como «Laboratorio»» con el usuario que lo activó. La actualización y el evento son atómicos: si falla una parte, no se guarda ninguna.
+
+La ubicación y el monitor se bloquean con `FOR NO KEY UPDATE` durante esa sentencia. Dos activaciones simultáneas no pueden consumir la misma reserva; un cambio de reserva o de archivado también se respeta. Estos bloqueos permiten las comprobaciones de claves foráneas de las lecturas.
+
+| Caso | Respuesta |
+|---|---|
+| JSON/campos, código, nombre o id inválidos | 400 con mensaje para corregir la petición |
+| Sin token o con token falso/vencido | 401 `Inicia sesión de nuevo.` |
+| Rol no autorizado o ubicación ajena/inexistente | 403 `No tienes permiso.` |
+| Ubicación propia archivada | 409 `No se puede activar un nodo en una ubicación archivada.` |
+| Código con formato válido que no existe | 404 `Código no encontrado. Revisa la etiqueta del monitor.` |
+| Monitor sin reserva para el cliente de la sesión | 403 `Este código no está disponible para tu cuenta.` |
+| Monitor propio ya `en_uso`, `desactivado` o `retirado` | 409 `Este monitor ya está en uso, desactivado o retirado.` |
+| La reserva cambió antes de poder activarla | 409 `El monitor cambió de estado. Vuelve a cargar la página.` |
+| Falla interna | 500 con mensaje legible; el detalle queda solo en el log |
+
+Tras activarse, el flujo de recepción existente (#49) empieza a guardar sus lecturas en la ubicación asignada. No hace falta llamar a la API de inventario desde este endpoint: #66 y #67 usan el mismo registro de PostgreSQL. El cambio posterior de nombre, ubicación o estado se implementa en #75.
+
+Para verificar el recorrido registro → reserva → activación → primera lectura, desde la raíz:
+
+```bash
+python -B -m unittest discover -s pruebas -p test_activacion.py -v
+```
+
+Las pruebas usan contenedores aislados y eliminan contenedores, volúmenes y red al terminar. `-B` evita generar caché de Python. Más detalles en [pruebas de activación](../pruebas/README.md#activación-de-monitores-67).
 
 ## Alertas UMBRAL y SENSOR (#69)
 

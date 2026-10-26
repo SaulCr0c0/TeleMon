@@ -47,28 +47,37 @@ def esperar(comprobar, descripcion, segundos=60):
     raise RuntimeError(f"No estuvo listo a tiempo: {descripcion}")
 
 
-def token(cliente=1, rol="cliente", secreto=SECRETO, vencido=False):
+def token(cliente=1, rol="cliente", secreto=SECRETO, vencido=False, usuario=1):
     def codificar(valor):
         texto = json.dumps(valor, separators=(",", ":")).encode()
         return base64.urlsafe_b64encode(texto).rstrip(b"=").decode()
 
     cabecera = codificar({"alg": "HS256", "typ": "JWT"})
-    datos = codificar({"sub": 1, "cliente": cliente, "rol": rol,
+    datos = codificar({"sub": usuario, "cliente": cliente, "rol": rol,
                        "exp": int(time.time()) + (-60 if vencido else 3600)})
     firma = hmac.new(secreto.encode(), f"{cabecera}.{datos}".encode(), hashlib.sha256).digest()
     return f"{cabecera}.{datos}." + base64.urlsafe_b64encode(firma).rstrip(b"=").decode()
 
 
-class UbicacionesHTTP(unittest.TestCase):
+class EntornoHTTP(unittest.TestCase):
+    """Backend y base exclusivos de cada clase de integración; sin datos reales."""
+
+    PREFIJO = "telemon-s64"
+    TABS = {TAB}
+
+    @classmethod
+    def preparar_flujos(cls, prueba, originales):
+        return prueba
+
     @classmethod
     def setUpClass(cls):
         sufijo = uuid.uuid4().hex[:10]
-        cls.red = f"telemon-s64-{sufijo}"
+        cls.red = f"{cls.PREFIJO}-{sufijo}"
         cls.postgres = f"{cls.red}-pg"
         cls.nodered = f"{cls.red}-nr"
         cls.addClassCleanup(cls.limpiar)
         docker("network", "create", cls.red)
-        docker("run", "--detach", "--rm", "--name", cls.postgres, "--network", cls.red,
+        docker("run", "--detach", "--name", cls.postgres, "--network", cls.red,
                "-e", "POSTGRES_PASSWORD=solo-pruebas", "-e", "POSTGRES_DB=ubicaciones_test",
                "postgres:17-alpine")
         esperar(lambda: docker("exec", cls.postgres, "pg_isready", "-h", "127.0.0.1", "-U", "postgres",
@@ -78,12 +87,17 @@ class UbicacionesHTTP(unittest.TestCase):
         flujos = json.loads((RAIZ / "nodered/data/flows.json").read_text(encoding="utf-8"))
         sesion = {"5e5104a1c0de0001", "5e5104a1c0de0008", "5e5104a1c0de0009",
                   "5e5104a1c0de000a", "5a9c3b7e1d2f4a03"}
-        prueba = [n for n in flujos if n["id"] == TAB or n.get("z") == TAB or n["id"] in sesion]
+        prueba = [n for n in flujos if n["id"] in cls.TABS or n.get("z") in cls.TABS or n["id"] in sesion]
+        prueba = cls.preparar_flujos(prueba, flujos)
         for nodo in prueba:
-            if nodo["id"] == "5e5104a1c0de0009":
-                # La lógica de sesión es la real. Solo se carga JWT desde los módulos
-                # ya instalados, para no descargar dependencias durante la prueba.
-                nodo["func"] = "const jwt = global.get('jwt');\n" + nodo["func"]
+            if nodo.get("type") == "function" and nodo.get("libs"):
+                # Se conserva la lógica real; se cargan JWT y crypto ya disponibles
+                # desde el contexto para no descargar módulos durante las pruebas.
+                for libreria in nodo["libs"]:
+                    if libreria["module"] not in {"jsonwebtoken", "crypto"}:
+                        raise RuntimeError(f"Módulo no preparado para pruebas: {libreria['module']}")
+                    nombre = "jwt" if libreria["module"] == "jsonwebtoken" else "crypto"
+                    nodo["func"] = f"const {libreria['var']} = global.get('{nombre}');\n" + nodo["func"]
                 nodo["libs"] = []
 
         imagen = os.environ.get("TELEMON_NODERED_IMAGE", "telemon-nodered:latest")
@@ -95,13 +109,14 @@ class UbicacionesHTTP(unittest.TestCase):
                "-e", "PGDATABASE=ubicaciones_test", "-e", "PGUSER=postgres",
                "-e", "PGPASSWORD=solo-pruebas", "-e", f"JWT_SECRETO={SECRETO}",
                "--mount", f"type=bind,source={modulos},target=/opt/telemon/node_modules,readonly", imagen)
-        with tempfile.TemporaryDirectory(prefix="telemon-s64-") as temporal:
+        with tempfile.TemporaryDirectory(prefix=f"{cls.PREFIJO}-") as temporal:
             carpeta = Path(temporal)
             (carpeta / "flows.json").write_text(json.dumps(prueba, ensure_ascii=False), encoding="utf-8")
             (carpeta / "settings.js").write_text(
                 "module.exports = { flowFile: 'flows.json', credentialSecret: false, "
                 "uiPort: 1880, httpAdminRoot: false, "
-                "functionGlobalContext: { jwt: require('/opt/telemon/node_modules/jsonwebtoken') } };\n",
+                "functionGlobalContext: { jwt: require('/opt/telemon/node_modules/jsonwebtoken'), "
+                "crypto: require('node:crypto') } };\n",
                 encoding="utf-8",
             )
             for archivo in ("flows.json", "settings.js"):
@@ -150,6 +165,8 @@ class UbicacionesHTTP(unittest.TestCase):
                  "TRUNCATE roles, clientes RESTART IDENTITY CASCADE;\n" +
                  (RAIZ / "database/02_datos.sql").read_text(encoding="utf-8"))
 
+
+class UbicacionesHTTP(EntornoHTTP):
     def test_aislamiento_y_sesion_en_todas_las_rutas(self):
         for metodo, ruta, cuerpo in (
             ("GET", "/api/ubicaciones", None), ("GET", "/api/ubicaciones/1", None),

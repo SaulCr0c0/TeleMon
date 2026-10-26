@@ -1,6 +1,7 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { api, ErrorApi } from '../../api/cliente';
 import { dibujar } from '../../test/dibujar';
 import Nodos from './Nodos';
 
@@ -9,6 +10,8 @@ const opciones = {
   patron: '/ubicaciones/:ubicacionId/nodos',
   usuario: { nombre: 'Ana Rojas', rol: 'cliente', monitores: 7 },
 };
+
+afterEach(() => vi.restoreAllMocks());
 
 async function cargar() {
   dibujar(<Nodos />, opciones);
@@ -46,19 +49,56 @@ describe('Nodos', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Código no válido');
     await userEvent.clear(codigo);
     await userEvent.type(codigo, 'm5ry2qfj');
+    await userEvent.type(screen.getAllByLabelText('Nombre del nodo')[0], 'Laboratorio');
     await userEvent.click(screen.getByRole('button', { name: 'Añadir nodo' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('no está disponible para tu cuenta');
   });
 
-  it('añade un nodo con el código de su etiqueta', async () => {
+  it('normaliza el código y el nombre al añadir un nodo', async () => {
     await editar();
-    await userEvent.type(screen.getByLabelText('Código de la etiqueta'), 'w3fj-7kta');
-    await userEvent.type(screen.getAllByLabelText('Nombre del nodo')[0], 'Laboratorio');
+    const crear = vi.spyOn(api, 'post');
+    await userEvent.type(screen.getByLabelText('Código de la etiqueta'), ' w3fj 7kta ');
+    await userEvent.type(screen.getAllByLabelText('Nombre del nodo')[0], '  Laboratorio  ');
     await userEvent.click(screen.getByRole('button', { name: 'Añadir nodo' }));
     expect(await screen.findByDisplayValue('Laboratorio')).toBeInTheDocument();
+    expect(crear).toHaveBeenCalledWith('/api/ubicaciones/1/dispositivos', {
+      codigo: 'W3FJ-7KTA',
+      nombre: 'Laboratorio',
+    });
     await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
     expect(await screen.findByText('Esperando la primera lectura')).toBeInTheDocument();
   });
+
+  it('no envía una activación con el nombre vacío', async () => {
+    await editar();
+    const crear = vi.spyOn(api, 'post');
+    await userEvent.type(screen.getByLabelText('Código de la etiqueta'), 'w3fj7kta');
+    await userEvent.type(screen.getAllByLabelText('Nombre del nodo')[0], '   ');
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir nodo' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Escribe el nombre del nodo.');
+    expect(crear).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    [404, 'Código no encontrado.'],
+    [403, 'Este código no está disponible para tu cuenta.'],
+    [409, 'Este código ya está en uso.'],
+  ])(
+    'muestra el error %i del backend y conserva los datos para corregirlos',
+    async (estado, mensaje) => {
+      await editar();
+      vi.spyOn(api, 'post').mockRejectedValueOnce(new ErrorApi(estado, mensaje));
+      const codigo = screen.getByLabelText('Código de la etiqueta');
+      const nombre = screen.getAllByLabelText('Nombre del nodo')[0];
+      await userEvent.type(codigo, 'w3fj7kta');
+      await userEvent.type(nombre, 'Mi nodo');
+      await userEvent.click(screen.getByRole('button', { name: 'Añadir nodo' }));
+      expect(await screen.findByRole('alert')).toHaveTextContent(mensaje);
+      expect(codigo).toHaveValue('W3FJ7KTA');
+      expect(nombre).toHaveValue('Mi nodo');
+      expect(screen.getByRole('button', { name: 'Añadir nodo' })).toBeEnabled();
+    },
+  );
 
   it('mueve un nodo a otra ubicación y avisa', async () => {
     await editar();

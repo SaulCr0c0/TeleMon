@@ -1825,5 +1825,196 @@
                 "64ab1cac10de000d"
             ]
         ]
+    },
+    {
+        "id": "67ac71bac10de001",
+        "type": "tab",
+        "label": "Activación y nodos",
+        "disabled": false,
+        "info": "Activar monitores reservados y consultar los nodos del cliente (#67).",
+        "env": []
+    },
+    {
+        "id": "67ac71bac10de002",
+        "type": "http in",
+        "z": "67ac71bac10de001",
+        "name": "",
+        "url": "/api/ubicaciones/:id/dispositivos",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 220,
+        "y": 80,
+        "wires": [
+            [
+                "67ac71bac10de003"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de003",
+        "type": "link call",
+        "z": "67ac71bac10de001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 530,
+        "y": 80,
+        "wires": [
+            [
+                "67ac71bac10de006"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de004",
+        "type": "http in",
+        "z": "67ac71bac10de001",
+        "name": "",
+        "url": "/api/ubicaciones/:id/dispositivos",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 220,
+        "y": 180,
+        "wires": [
+            [
+                "67ac71bac10de005"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de005",
+        "type": "link call",
+        "z": "67ac71bac10de001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 530,
+        "y": 180,
+        "wires": [
+            [
+                "67ac71bac10de006"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de006",
+        "type": "function",
+        "z": "67ac71bac10de001",
+        "name": "Preparar nodos o activación",
+        "func": "if (!msg.sesion) return [null, msg];\nconst negar = (estado, mensaje) => {\n    msg.statusCode = estado;\n    msg.payload = { mensaje };\n    msg.headers = { 'Cache-Control': 'no-store' };\n    return [null, msg];\n};\nconst { cliente, sub, rol } = msg.sesion;\nconst entero = (valor) => Number.isInteger(valor) && valor > 0 && valor <= 2147483647;\nif (rol !== 'cliente' || !entero(cliente) || !entero(sub)) return negar(403, 'No tienes permiso.');\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) ? Number(texto) : null;\nif (!entero(id)) return negar(400, 'Ubicación no válida.');\nconst metodo = msg.req.method.toUpperCase();\nmsg.dispositivos = { lista: metodo === 'GET' };\nmsg.params = [id, cliente];\nconst columnas = `d.id AS dispositivo_id, d.ubicacion_id, d.nombre, d.estado,\n  l.fecha_hora, l.temperatura, l.humedad, l.presion, l.mq135_v, l.rs_r0, l.nivel_aire,\n  (d.estado = 'en_uso' AND l.fecha_hora > now() - make_interval(secs => u.espera_sin_conexion_s)) AS conectado`;\nconst ultima = `LEFT JOIN LATERAL (\n  SELECT fecha_hora, temperatura, humedad, presion, mq135_v, rs_r0, nivel_aire\n  FROM lecturas WHERE dispositivo_id = d.id AND ubicacion_id = u.id\n  ORDER BY fecha_hora DESC, id DESC LIMIT 1\n) l ON true`;\nif (metodo === 'GET') {\n    msg.query = `SELECT ${columnas},\n  (SELECT count(*)::int FROM dispositivos WHERE cliente_id = $2 AND estado = 'reservado') AS reservados\nFROM ubicaciones u\nLEFT JOIN dispositivos d ON d.ubicacion_id = u.id AND d.cliente_id = u.cliente_id\n  AND d.estado IN ('en_uso', 'desactivado')\n${ultima}\nWHERE u.id = $1 AND u.cliente_id = $2\nORDER BY d.id`;\n    return [msg, null];\n}\nconst cuerpo = msg.payload;\nif (!cuerpo || typeof cuerpo !== 'object' || Array.isArray(cuerpo) || Buffer.isBuffer(cuerpo)) {\n    return negar(400, 'Envía un objeto JSON con el código y el nombre del nodo.');\n}\nif (Object.keys(cuerpo).some((campo) => !['codigo', 'nombre'].includes(campo))) {\n    return negar(400, 'La petición contiene campos no permitidos.');\n}\nif (typeof cuerpo.codigo !== 'string') return negar(400, 'Código no válido. Revisa la etiqueta del monitor.');\nconst limpio = cuerpo.codigo.toUpperCase().replace(/[-\\s]/g, '');\nif (!/^[A-Z0-9]{8}$/.test(limpio)) return negar(400, 'Código no válido. Revisa la etiqueta del monitor.');\nif (typeof cuerpo.nombre !== 'string' || !cuerpo.nombre.trim()) return negar(400, 'Escribe el nombre del nodo.');\nconst codigo = `${limpio.slice(0, 4)}-${limpio.slice(4)}`;\nmsg.params.push(codigo, cuerpo.nombre.trim(), sub);\n// Los bloqueos impiden activar dos veces o perder un cambio de reserva/archivado.\n// NO KEY UPDATE permite las comprobaciones de FK de lecturas y eventos.\nmsg.query = `WITH destino AS MATERIALIZED (\n  SELECT * FROM ubicaciones WHERE id = $1 AND cliente_id = $2\n  FOR NO KEY UPDATE\n), candidato AS MATERIALIZED (\n  SELECT d.id, d.cliente_id, d.estado FROM dispositivos d\n  WHERE d.codigo = $3 AND EXISTS (SELECT 1 FROM destino WHERE NOT archivada)\n  FOR NO KEY UPDATE OF d\n), activado AS (\n  UPDATE dispositivos d\n  SET ubicacion_id = u.id, nombre = $4, estado = 'en_uso', asignado_en = now(), asignado_por = $5\n  FROM destino u, candidato c\n  WHERE d.id = c.id AND NOT u.archivada\nAND c.cliente_id = $2 AND c.estado = 'reservado'\nAND d.cliente_id = $2 AND d.estado = 'reservado'\n  RETURNING d.id, d.ubicacion_id, d.nombre, d.estado\n), evento AS (\n  INSERT INTO eventos_dispositivo (dispositivo_id, texto, usuario_id)\n  SELECT id, 'Activado por el cliente como «' || nombre || '»', $5 FROM activado\n)\nSELECT CASE\n  WHEN NOT EXISTS (SELECT 1 FROM destino) THEN 'ubicacion'\n  WHEN EXISTS (SELECT 1 FROM destino WHERE archivada) THEN 'archivada'\n  WHEN NOT EXISTS (SELECT 1 FROM candidato) THEN 'codigo'\n  WHEN EXISTS (SELECT 1 FROM candidato WHERE cliente_id IS DISTINCT FROM $2) THEN 'reserva'\n  WHEN EXISTS (SELECT 1 FROM candidato WHERE estado IN ('en_uso', 'desactivado', 'retirado')) THEN 'estado'\n  WHEN EXISTS (SELECT 1 FROM candidato WHERE estado <> 'reservado') THEN 'reserva'\n  WHEN NOT EXISTS (SELECT 1 FROM activado) THEN 'conflicto'\n  ELSE 'ok' END AS resultado,\n  ${columnas}\nFROM (SELECT 1) x\nLEFT JOIN activado d ON true\nLEFT JOIN destino u ON u.id = d.ubicacion_id\n${ultima}`;\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 800,
+        "y": 120,
+        "wires": [
+            [
+                "67ac71bac10de007"
+            ],
+            [
+                "67ac71bac10de009"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de007",
+        "type": "postgresql",
+        "z": "67ac71bac10de001",
+        "name": "Consultar o activar monitor",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1080,
+        "y": 120,
+        "wires": [
+            [
+                "67ac71bac10de008"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de008",
+        "type": "function",
+        "z": "67ac71bac10de001",
+        "name": "Responder nodos",
+        "func": "msg.headers = { 'Cache-Control': 'no-store' };\nconst lista = msg.dispositivos.lista;\nconst negar = (estado, mensaje) => {\n    msg.statusCode = estado;\n    msg.payload = { mensaje };\n    return msg;\n};\nif (lista && msg.payload.length === 0) return negar(403, 'No tienes permiso.');\nif (!lista) {\n    const errores = {\n        ubicacion: [403, 'No tienes permiso.'],\n        archivada: [409, 'No se puede activar un nodo en una ubicación archivada.'],\n        codigo: [404, 'Código no encontrado. Revisa la etiqueta del monitor.'],\n        reserva: [403, 'Este código no está disponible para tu cuenta.'],\n        estado: [409, 'Este monitor ya está en uso, desactivado o retirado.'],\n        conflicto: [409, 'El monitor cambió de estado. Vuelve a cargar la página.'],\n    };\n    const error = errores[msg.payload[0]?.resultado];\n    if (error) return negar(...error);\n    if (msg.payload[0]?.resultado !== 'ok') throw new Error('Resultado de activación no válido');\n}\nconst numero = (valor) => valor === null ? null : Number(valor);\nconst nodos = msg.payload.filter((f) => f.dispositivo_id !== null).map((f) => ({\n    id: f.dispositivo_id,\n    ubicacionId: f.ubicacion_id,\n    nombre: f.nombre,\n    estado: f.estado,\n    conectado: f.conectado === true,\n    esperando: f.fecha_hora === null,\n    fecha: f.fecha_hora === null ? null : new Date(f.fecha_hora).toISOString(),\n    temperatura: numero(f.temperatura),\n    humedad: numero(f.humedad),\n    presion: numero(f.presion),\n    rsR0: numero(f.rs_r0),\n    nivelAire: f.nivel_aire ?? (f.mq135_v !== null ? 'sin_calibrar' : null),\n}));\nmsg.statusCode = lista ? 200 : 201;\nmsg.payload = lista ? { nodos, reservadosSinActivar: Number(msg.payload[0].reservados) } : nodos[0];\ndelete msg.query;\ndelete msg.params;\ndelete msg.pgsql;\ndelete msg.dispositivos;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1330,
+        "y": 120,
+        "wires": [
+            [
+                "67ac71bac10de009"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de009",
+        "type": "http response",
+        "z": "67ac71bac10de001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1540,
+        "y": 220,
+        "wires": []
+    },
+    {
+        "id": "67ac71bac10de00a",
+        "type": "catch",
+        "z": "67ac71bac10de001",
+        "name": "Errores de activación",
+        "scope": [
+            "67ac71bac10de006",
+            "67ac71bac10de007",
+            "67ac71bac10de008",
+            "67ac71bac10de003",
+            "67ac71bac10de005"
+        ],
+        "uncaught": false,
+        "x": 820,
+        "y": 320,
+        "wires": [
+            [
+                "67ac71bac10de00b"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de00b",
+        "type": "function",
+        "z": "67ac71bac10de001",
+        "name": "Error de nodos",
+        "func": "node.error(`Nodos: ${msg.error?.source?.name || 'API'}: ${msg.error?.message || 'Error inesperado'}`);\nmsg.statusCode = 500;\nmsg.payload = { mensaje: 'No se pudieron consultar o activar los nodos. Intenta de nuevo.' };\nmsg.headers = { 'Cache-Control': 'no-store' };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1100,
+        "y": 320,
+        "wires": [
+            [
+                "67ac71bac10de009"
+            ]
+        ]
     }
 ]

@@ -17,8 +17,9 @@ export function normalizarMac(texto = '') {
 }
 
 export function normalizarCodigo(texto = '') {
-  const limpio = texto.toUpperCase().replace(/[^A-Z0-9]/g, '');
-  if (limpio.length !== 8) return null;
+  if (typeof texto !== 'string') return null;
+  const limpio = texto.toUpperCase().replace(/[-\s]/g, '');
+  if (!/^[A-Z0-9]{8}$/.test(limpio)) return null;
   return `${limpio.slice(0, 4)}-${limpio.slice(4)}`;
 }
 
