@@ -25,6 +25,18 @@ services:
     networks:
       - red_telematica
 
+  broker_propio:
+    build: ./broker-mqtt
+    container_name: broker_propio
+    restart: unless-stopped
+    environment:
+      BROKER_USERS: ${BROKER_USERS}
+      BROKER_LOG: ${BROKER_LOG:-INFO}
+    ports:
+      - "${BROKER_PROPIO_PORT:-1884}:1883"
+    networks:
+      - red_telematica
+
   postgres:
     image: postgres:17-alpine
     container_name: postgres

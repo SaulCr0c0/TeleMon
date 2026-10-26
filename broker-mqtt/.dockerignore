@@ -1,0 +1,5 @@
+pruebas/
+__pycache__/
+*.pyc
+README.md
+probar.sh
