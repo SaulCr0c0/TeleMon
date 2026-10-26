@@ -8,12 +8,24 @@ Desde la raíz, con Docker funcionando y la imagen del backend construida:
 
 ```bash
 docker compose build nodered
-python -m unittest discover -s pruebas -p test_ubicaciones.py -v
+python -B -m unittest discover -s pruebas -p test_ubicaciones.py -v
 ```
 
 El módulo `jsonwebtoken` de #63 debe estar instalado en `nodered/data/node_modules` (Node-RED lo instala al arrancar normalmente). Las pruebas reutilizan ese módulo en modo de solo lectura; no descargan dependencias de Python. Si la imagen del backend tiene otro nombre, define `TELEMON_NODERED_IMAGE` con su etiqueta.
 
 Se comprueban las cuatro rutas de ubicaciones, aislamiento entre clientes, tokens ausentes/falsos/vencidos, conteos de nodos y alertas, monitores trasladados o sin lecturas, creación de umbrales, entradas inválidas, archivado sin pérdida de datos y reversión completa ante un fallo al crear umbrales.
+
+## Activación de monitores (#67)
+
+`test_activacion.py` prueba las rutas reales de inventario (#66), activación y consulta de nodos (#67), junto con la recepción existente (#49), contra PostgreSQL 17. Reutiliza el entorno aislado de `test_ubicaciones.py`. La inyección de tramas para verificar la recepción existe solo en el flujo temporal de las pruebas y no se agrega al backend del proyecto.
+
+```bash
+python -B -m unittest discover -s pruebas -p test_activacion.py -v
+```
+
+Requiere Docker, la imagen del backend construida y los módulos del login ya instalados, igual que las pruebas de ubicaciones. Verifica la activación de un monitor reservado, la normalización del código, el nombre obligatorio, los errores 400/401/403/404/409, el aislamiento de clientes, el listado real de nodos y las activaciones simultáneas. También comprueba el registro de usuario/fecha/evento y la reversión completa si falla el evento, así como el paso de descartar lecturas de un monitor reservado a guardarlas tras activarlo.
+
+Los contenedores y sus volúmenes se eliminan explícitamente con `docker rm --force --volumes`, y después se elimina la red. Los archivos de configuración temporal también se borran. Ejecutar con `-B` evita dejar `__pycache__`.
 
 ## Carga MQTT
 
