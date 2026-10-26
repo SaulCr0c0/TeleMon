@@ -120,7 +120,8 @@
         "y": 100,
         "wires": [
             [
-                "4c8f1e3b7a2d9f0a"
+                "4c8f1e3b7a2d9f0a",
+                "a1e7a5c0de000001"
             ]
         ]
     },
@@ -745,6 +746,758 @@
         "wires": [
             [
                 "f2e4d6c8b0a1c205"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0001",
+        "type": "tab",
+        "label": "Inventario",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "1a7e0d15c0de0002",
+        "type": "link in",
+        "z": "1a7e0d15c0de0001",
+        "name": "consultar monitores",
+        "links": [],
+        "x": 175,
+        "y": 60,
+        "wires": [
+            [
+                "1a7e0d15c0de0003"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0003",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Armar consulta de monitores",
+        "func": "const condiciones = [];\nconst params = [];\nif (msg.filtro?.id !== undefined) {\n    params.push(msg.filtro.id);\n    condiciones.push(`d.id = $${params.length}`);\n}\nif (msg.filtro?.estado !== undefined) {\n    params.push(msg.filtro.estado);\n    condiciones.push(`d.estado = $${params.length}`);\n}\nmsg.query = `SELECT d.id, d.mac_address, d.codigo, d.estado, d.cliente_id, c.nombre AS cliente,\n  u.nombre AS ubicacion, d.nombre AS nodo, d.ultima_lectura_en, d.mq135_r0_kohm, d.notas,\n  CASE WHEN d.ultima_lectura_en IS NULL THEN 'nunca'\n    WHEN d.ultima_lectura_en > now() - make_interval(secs => COALESCE(u.espera_sin_conexion_s, 120)) THEN 'en_linea'\n    ELSE 'sin_conexion' END AS conexion\nFROM dispositivos d\nLEFT JOIN clientes c ON c.id = d.cliente_id\nLEFT JOIN ubicaciones u ON u.id = d.ubicacion_id\n${condiciones.length > 0 ? `WHERE ${condiciones.join(' AND ')}` : ''}\nORDER BY d.creado_en DESC, d.id DESC`;\nmsg.params = params;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 60,
+        "wires": [
+            [
+                "1a7e0d15c0de0004"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0004",
+        "type": "postgresql",
+        "z": "1a7e0d15c0de0001",
+        "name": "Monitores",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 620,
+        "y": 60,
+        "wires": [
+            [
+                "1a7e0d15c0de0005"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0005",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Dar forma de monitor",
+        "func": "msg.payload = msg.payload.map((f) => ({\n    id: f.id,\n    mac: f.mac_address,\n    codigo: f.codigo,\n    estado: f.estado,\n    clienteId: f.cliente_id,\n    cliente: f.cliente,\n    ubicacion: f.ubicacion,\n    nodo: f.nodo,\n    conexion: f.conexion,\n    ultimaLectura: f.ultima_lectura_en === null ? null : new Date(f.ultima_lectura_en).toISOString(),\n    r0: f.mq135_r0_kohm === null ? null : Number(f.mq135_r0_kohm),\n    notas: f.notas,\n}));\ndelete msg.query;\ndelete msg.params;\ndelete msg.filtro;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 820,
+        "y": 60,
+        "wires": [
+            [
+                "1a7e0d15c0de0006"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0006",
+        "type": "link out",
+        "z": "1a7e0d15c0de0001",
+        "name": "volver",
+        "mode": "return",
+        "links": [],
+        "x": 995,
+        "y": 60,
+        "wires": []
+    },
+    {
+        "id": "1a7e0d15c0de000a",
+        "type": "http in",
+        "z": "1a7e0d15c0de0001",
+        "name": "",
+        "url": "/api/admin/dispositivos",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 170,
+        "y": 160,
+        "wires": [
+            [
+                "1a7e0d15c0de000b"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de000b",
+        "type": "link call",
+        "z": "1a7e0d15c0de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 400,
+        "y": 160,
+        "wires": [
+            [
+                "1a7e0d15c0de000c"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de000c",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Validar filtro",
+        "func": "if (!msg.sesion) return [null, msg];\nif (msg.sesion.rol !== 'admin') {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return [null, msg];\n}\n\nconst ESTADOS = ['disponible', 'reservado', 'en_uso', 'desactivado', 'retirado'];\nconst estado = msg.req.query.estado ?? 'todos';\nif (estado !== 'todos' && !ESTADOS.includes(estado)) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Estado no válido.' };\n    return [null, msg];\n}\nmsg.filtro = estado === 'todos' ? {} : { estado };\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 160,
+        "wires": [
+            [
+                "1a7e0d15c0de000d"
+            ],
+            [
+                "1a7e0d15c0de000e"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de000d",
+        "type": "link call",
+        "z": "1a7e0d15c0de0001",
+        "name": "consultar monitores",
+        "links": [
+            "1a7e0d15c0de0002"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 820,
+        "y": 160,
+        "wires": [
+            [
+                "1a7e0d15c0de000e"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de000e",
+        "type": "http response",
+        "z": "1a7e0d15c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1040,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "1a7e0d15c0de0014",
+        "type": "http in",
+        "z": "1a7e0d15c0de0001",
+        "name": "",
+        "url": "/api/admin/dispositivos",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 170,
+        "y": 260,
+        "wires": [
+            [
+                "1a7e0d15c0de0015"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0015",
+        "type": "link call",
+        "z": "1a7e0d15c0de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 400,
+        "y": 260,
+        "wires": [
+            [
+                "1a7e0d15c0de0016"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0016",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Validar monitor nuevo",
+        "func": "if (!msg.sesion) return [null, msg];\nif (msg.sesion.rol !== 'admin') {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return [null, msg];\n}\n\nconst mac = String(msg.payload?.mac ?? '').trim().toUpperCase();\nif (!/^([0-9A-F]{2}:){5}[0-9A-F]{2}$/.test(mac)) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'La MAC debe tener el formato AA:BB:CC:DD:EE:FF.' };\n    return [null, msg];\n}\n\nconst crudo = msg.payload?.clienteId;\nconst clienteId = crudo === null || crudo === undefined || crudo === '' ? null : Number(crudo);\nif (clienteId !== null && (!Number.isInteger(clienteId) || clienteId < 1 || clienteId > 2147483647)) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Cliente no válido.' };\n    return [null, msg];\n}\n\nmsg.nuevo = { mac, clienteId };\nmsg.query = `SELECT (SELECT count(*) FROM dispositivos WHERE mac_address = $1)::int AS repetidas,\n  c.id AS cliente_id, c.nombre AS organizacion, c.suspendido_en\nFROM (SELECT 1) AS x\nLEFT JOIN clientes c ON c.id = $2`;\nmsg.params = [mac, clienteId];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 610,
+        "y": 260,
+        "wires": [
+            [
+                "1a7e0d15c0de0017"
+            ],
+            [
+                "1a7e0d15c0de001d"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0017",
+        "type": "postgresql",
+        "z": "1a7e0d15c0de0001",
+        "name": "MAC y cliente",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 820,
+        "y": 260,
+        "wires": [
+            [
+                "1a7e0d15c0de0018"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0018",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Preparar registro",
+        "func": "const fila = msg.payload[0];\nconst { mac, clienteId } = msg.nuevo;\nconst negar = (estado, mensaje) => {\n    msg.statusCode = estado;\n    msg.payload = { mensaje };\n    return [null, msg];\n};\nif (fila.repetidas > 0) return negar(409, 'Esa MAC ya está registrada.');\nif (clienteId !== null && fila.cliente_id === null) return negar(404, 'Cliente no encontrado.');\nif (clienteId !== null && fila.suspendido_en) return negar(409, 'No se puede reservar para un cliente suspendido.');\nconst LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';\nconst parte = () => Array.from({ length: 4 }, () => LETRAS[crypto.randomInt(LETRAS.length)]).join('');\nconst codigo = `${parte()}-${parte()}`;\nconst eventos = [`Registrado con el código ${codigo}`];\nif (clienteId !== null) eventos.push(`Reservado para ${fila.organizacion}`);\nmsg.query = `WITH nuevo AS (\n  INSERT INTO dispositivos (mac_address, codigo, cliente_id, estado)\n  VALUES ($1, $2, $3::integer, CASE WHEN $3::integer IS NULL THEN 'disponible' ELSE 'reservado' END)\n  ON CONFLICT DO NOTHING\n  RETURNING id\n), eventos AS (\n  INSERT INTO eventos_dispositivo (dispositivo_id, texto, usuario_id)\n  SELECT nuevo.id, t.texto, $4 FROM nuevo, unnest($5::text[]) WITH ORDINALITY AS t (texto, orden)\n  ORDER BY t.orden\n)\nSELECT id FROM nuevo`;\nmsg.params = [mac, codigo, clienteId, msg.sesion.sub, eventos];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "crypto",
+                "module": "crypto"
+            }
+        ],
+        "x": 1020,
+        "y": 260,
+        "wires": [
+            [
+                "1a7e0d15c0de0019"
+            ],
+            [
+                "1a7e0d15c0de001d"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0019",
+        "type": "postgresql",
+        "z": "1a7e0d15c0de0001",
+        "name": "Registrar monitor",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1220,
+        "y": 260,
+        "wires": [
+            [
+                "1a7e0d15c0de001a"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de001a",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Comprobar registro",
+        "func": "const fila = msg.payload[0];\nif (!fila) {\n    msg.statusCode = 409;\n    msg.payload = { mensaje: 'Esa MAC ya está registrada.' };\n    return [null, msg];\n}\nmsg.statusCode = 201;\nmsg.filtro = { id: fila.id };\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 610,
+        "y": 320,
+        "wires": [
+            [
+                "1a7e0d15c0de001b"
+            ],
+            [
+                "1a7e0d15c0de001d"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de001b",
+        "type": "link call",
+        "z": "1a7e0d15c0de0001",
+        "name": "consultar monitores",
+        "links": [
+            "1a7e0d15c0de0002"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 820,
+        "y": 320,
+        "wires": [
+            [
+                "1a7e0d15c0de001c"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de001c",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Responder monitor",
+        "func": "if (msg.payload.length === 0) {\n    msg.statusCode = 404;\n    msg.payload = { mensaje: 'Monitor no encontrado.' };\n    return msg;\n}\nmsg.payload = msg.payload[0];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1020,
+        "y": 320,
+        "wires": [
+            [
+                "1a7e0d15c0de001d"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de001d",
+        "type": "http response",
+        "z": "1a7e0d15c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1240,
+        "y": 340,
+        "wires": []
+    },
+    {
+        "id": "1a7e0d15c0de0028",
+        "type": "http in",
+        "z": "1a7e0d15c0de0001",
+        "name": "",
+        "url": "/api/admin/dispositivos/:id",
+        "method": "patch",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 440,
+        "wires": [
+            [
+                "1a7e0d15c0de0029"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0029",
+        "type": "link call",
+        "z": "1a7e0d15c0de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 400,
+        "y": 440,
+        "wires": [
+            [
+                "1a7e0d15c0de002a"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de002a",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Validar reserva",
+        "func": "if (!msg.sesion) return [null, msg];\nif (msg.sesion.rol !== 'admin') {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return [null, msg];\n}\n\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) && Number(texto) <= 2147483647 ? Number(texto) : null;\nif (id === null) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Monitor no válido.' };\n    return [null, msg];\n}\n\nif (!msg.payload || !('clienteId' in msg.payload)) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'No hay cambios que guardar.' };\n    return [null, msg];\n}\n\nconst crudo = msg.payload?.clienteId;\nconst clienteId = crudo === null || crudo === undefined || crudo === '' ? null : Number(crudo);\nif (clienteId !== null && (!Number.isInteger(clienteId) || clienteId < 1 || clienteId > 2147483647)) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Cliente no válido.' };\n    return [null, msg];\n}\n\nmsg.reserva = { id, clienteId };\nmsg.query = `SELECT d.id, d.estado, d.cliente_id, c.id AS cliente_nuevo, c.nombre AS organizacion, c.suspendido_en\nFROM dispositivos d\nLEFT JOIN clientes c ON c.id = $2\nWHERE d.id = $1`;\nmsg.params = [id, clienteId];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 440,
+        "wires": [
+            [
+                "1a7e0d15c0de002b"
+            ],
+            [
+                "1a7e0d15c0de0031"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de002b",
+        "type": "postgresql",
+        "z": "1a7e0d15c0de0001",
+        "name": "Monitor y cliente",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 800,
+        "y": 440,
+        "wires": [
+            [
+                "1a7e0d15c0de002c"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de002c",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Preparar reserva",
+        "func": "const d = msg.payload[0];\nconst { id, clienteId } = msg.reserva;\nconst negar = (estado, mensaje) => {\n    msg.statusCode = estado;\n    msg.payload = { mensaje };\n    return [null, null, msg];\n};\nif (!d) return negar(404, 'Monitor no encontrado.');\nif (d.estado !== 'disponible' && d.estado !== 'reservado') {\n    return negar(409, 'Solo se puede reservar un monitor disponible o reservado.');\n}\nif (clienteId !== null && d.cliente_nuevo === null) return negar(404, 'Cliente no encontrado.');\nif (clienteId !== null && d.suspendido_en) return negar(409, 'No se puede reservar para un cliente suspendido.');\nmsg.filtro = { id };\nif (d.cliente_id === clienteId) return [null, msg, null];\nmsg.query = `WITH cambio AS (\n  UPDATE dispositivos\n  SET cliente_id = $2::integer, estado = CASE WHEN $2::integer IS NULL THEN 'disponible' ELSE 'reservado' END\n  WHERE id = $1 AND estado IN ('disponible', 'reservado')\n  RETURNING id\n)\nINSERT INTO eventos_dispositivo (dispositivo_id, texto, usuario_id)\nSELECT id, $3, $4 FROM cambio\nRETURNING dispositivo_id`;\nmsg.params = [id, clienteId, clienteId === null ? 'Reserva quitada' : `Reservado para ${d.organizacion}`, msg.sesion.sub];\nreturn [msg, null, null];",
+        "outputs": 3,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1000,
+        "y": 440,
+        "wires": [
+            [
+                "1a7e0d15c0de002d"
+            ],
+            [
+                "1a7e0d15c0de002f"
+            ],
+            [
+                "1a7e0d15c0de0031"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de002d",
+        "type": "postgresql",
+        "z": "1a7e0d15c0de0001",
+        "name": "Guardar reserva",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1200,
+        "y": 440,
+        "wires": [
+            [
+                "1a7e0d15c0de002e"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de002e",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Comprobar reserva",
+        "func": "if (msg.payload.length === 0) {\n    msg.statusCode = 409;\n    msg.payload = { mensaje: 'El monitor cambió de estado. Vuelve a cargar la página.' };\n    return [null, msg];\n}\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 500,
+        "wires": [
+            [
+                "1a7e0d15c0de002f"
+            ],
+            [
+                "1a7e0d15c0de0031"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de002f",
+        "type": "link call",
+        "z": "1a7e0d15c0de0001",
+        "name": "consultar monitores",
+        "links": [
+            "1a7e0d15c0de0002"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 820,
+        "y": 500,
+        "wires": [
+            [
+                "1a7e0d15c0de0030"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0030",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Responder monitor",
+        "func": "if (msg.payload.length === 0) {\n    msg.statusCode = 404;\n    msg.payload = { mensaje: 'Monitor no encontrado.' };\n    return msg;\n}\nmsg.payload = msg.payload[0];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1020,
+        "y": 500,
+        "wires": [
+            [
+                "1a7e0d15c0de0031"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0031",
+        "type": "http response",
+        "z": "1a7e0d15c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1240,
+        "y": 520,
+        "wires": []
+    },
+    {
+        "id": "1a7e0d15c0de003c",
+        "type": "catch",
+        "z": "1a7e0d15c0de0001",
+        "name": "Errores del inventario",
+        "scope": [
+            "1a7e0d15c0de0003",
+            "1a7e0d15c0de0004",
+            "1a7e0d15c0de0005",
+            "1a7e0d15c0de000c",
+            "1a7e0d15c0de0016",
+            "1a7e0d15c0de0017",
+            "1a7e0d15c0de0018",
+            "1a7e0d15c0de0019",
+            "1a7e0d15c0de001a",
+            "1a7e0d15c0de001c",
+            "1a7e0d15c0de002a",
+            "1a7e0d15c0de002b",
+            "1a7e0d15c0de002c",
+            "1a7e0d15c0de002d",
+            "1a7e0d15c0de002e",
+            "1a7e0d15c0de0030"
+        ],
+        "uncaught": false,
+        "x": 180,
+        "y": 620,
+        "wires": [
+            [
+                "1a7e0d15c0de003d"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de003d",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Responder error",
+        "func": "node.error(`${msg.error.source.name || msg.error.source.type}: ${msg.error.message}`);\nmsg.statusCode = 500;\nmsg.payload = { mensaje: 'No se pudo completar la operación. Intenta de nuevo.' };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 620,
+        "wires": [
+            [
+                "1a7e0d15c0de003e"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de003e",
+        "type": "http response",
+        "z": "1a7e0d15c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 600,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "a1e7a5c0de000001",
+        "type": "function",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Buscar umbrales y alertas",
+        "func": "msg.alerta = { dispositivoId: msg.payload.dispositivoId, ubicacionId: msg.payload.ubicacionId };\nmsg.query = `SELECT\n  (SELECT COALESCE(json_agg(json_build_object('variable', variable, 'min', valor_min, 'max', valor_max)), '[]')\n    FROM umbrales WHERE ubicacion_id = $2 AND activo) AS umbrales,\n  (SELECT COALESCE(json_agg(json_build_object('id', id, 'tipo', tipo, 'variable', variable, 'peor', peor_valor)), '[]')\n    FROM alertas WHERE dispositivo_id = $1 AND cerrada_en IS NULL) AS abiertas,\n  (SELECT nombre FROM dispositivos WHERE id = $1) AS nodo`;\nmsg.params = [msg.alerta.dispositivoId, msg.alerta.ubicacionId];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 200,
+        "wires": [
+            [
+                "a1e7a5c0de000002"
+            ]
+        ]
+    },
+    {
+        "id": "a1e7a5c0de000002",
+        "type": "postgresql",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Umbrales y alertas abiertas",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 640,
+        "y": 200,
+        "wires": [
+            [
+                "a1e7a5c0de000003"
+            ]
+        ]
+    },
+    {
+        "id": "a1e7a5c0de000003",
+        "type": "function",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Evaluar alertas",
+        "func": "const { umbrales, abiertas, nodo } = msg.payload[0];\nconst { dispositivoId, ubicacionId } = msg.alerta;\nconst l = msg.lectura;\nconst NOMBRES = { temperatura: 'Temperatura', humedad: 'Humedad', presion: 'Presión', calidad_aire: 'Calidad del aire' };\nconst UNIDADES = { temperatura: ' °C', humedad: ' %', presion: ' hPa', calidad_aire: ' Rs/R0' };\nconst valores = { temperatura: l.temperatura, humedad: l.humedad, presion: l.presion, calidad_aire: msg.calculado.rsR0 };\nconst crudos = { temperatura: l.temperatura, humedad: l.humedad, presion: l.presion, calidad_aire: l.mq135_v };\nconst contadores = flow.get('contadoresAlertas') ?? {};\nconst acciones = [];\nconst COLUMNAS = 'id, dispositivo_id, ubicacion_id, tipo, variable, mensaje, peor_valor, abierta_en, cerrada_en';\nconst accion = (nombre, variable, query, params) => ({\n    accion: nombre,\n    aviso: { nodo, unidad: UNIDADES[variable] },\n    query: `${query} RETURNING ${COLUMNAS}`,\n    params,\n});\nconst abrir = (tipo, variable, mensaje, valor) =>\n    accion('abierta', variable, `INSERT INTO alertas (dispositivo_id, ubicacion_id, tipo, variable, mensaje, valor_inicio, peor_valor)\nVALUES ($1, $2, $3, $4, $5, $6, $6)\nON CONFLICT DO NOTHING`, [dispositivoId, ubicacionId, tipo, variable, mensaje, valor]);\nconst cerrar = (alerta, motivo) =>\n    accion('cerrada', alerta.variable, 'UPDATE alertas SET cerrada_en = now(), motivo_cierre = $2 WHERE id = $1 AND cerrada_en IS NULL',\n        [alerta.id, motivo]);\nconst empeorar = (alerta, valor) =>\n    accion('actualizada', alerta.variable, 'UPDATE alertas SET peor_valor = $2 WHERE id = $1 AND cerrada_en IS NULL',\n        [alerta.id, valor]);\nconst buscar = (tipo, variable) => abiertas.find((x) => x.tipo === tipo && x.variable === variable);\nconst distancia = (valor, u) =>\n    Math.max(u.min === null ? 0 : u.min - valor, u.max === null ? 0 : valor - u.max, 0);\nconst numero = (valor) => String(Number(valor));\nfor (const variable of Object.keys(NOMBRES)) {\n    const clave = `${dispositivoId}:${variable}`;\n    const c = (contadores[clave] ??= { fuera: 0, dentro: 0, nulos: 0 });\n    const umbral = umbrales.find((u) => u.variable === variable);\n    const alerta = buscar('UMBRAL', variable);\n    const valor = valores[variable];\n    if (!umbral) {\n        c.fuera = 0;\n        c.dentro = 0;\n        if (alerta) acciones.push(cerrar(alerta, 'umbral desactivado'));\n    } else if (valor !== null) {\n        const bajo = umbral.min !== null && valor < umbral.min;\n        const alto = umbral.max !== null && valor > umbral.max;\n        if (bajo || alto) {\n            c.fuera += 1;\n            c.dentro = 0;\n            if (alerta) {\n                if (distancia(valor, umbral) > distancia(Number(alerta.peor), umbral)) acciones.push(empeorar(alerta, valor));\n            } else if (c.fuera >= 2) {\n                const mensaje = variable === 'calidad_aire' && bajo\n                    ? `Calidad del aire en nivel ${msg.calculado.nivel}`\n                    : bajo\n                        ? `${NOMBRES[variable]} bajo el mínimo (${numero(umbral.min)}${UNIDADES[variable]})`\n                        : `${NOMBRES[variable]} sobre el máximo (${numero(umbral.max)}${UNIDADES[variable]})`;\n                acciones.push(abrir('UMBRAL', variable, mensaje, valor));\n            }\n        } else {\n            c.dentro += 1;\n            c.fuera = 0;\n            if (alerta && c.dentro >= 2) acciones.push(cerrar(alerta, 'volvió al rango'));\n        }\n    }\n    const sensor = buscar('SENSOR', variable);\n    if (crudos[variable] === null) {\n        const precalentando = variable === 'calidad_aire' && l.uptime !== null && l.uptime < 180;\n        if (!precalentando) {\n            c.nulos += 1;\n            if (!sensor && c.nulos >= 3) acciones.push(abrir('SENSOR', variable, `${NOMBRES[variable]} sin respuesta`, null));\n        }\n    } else {\n        c.nulos = 0;\n        if (sensor) acciones.push(cerrar(sensor, 'el sensor volvió a responder'));\n    }\n}\nflow.set('contadoresAlertas', contadores);\nreturn [acciones];",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 860,
+        "y": 200,
+        "wires": [
+            [
+                "a1e7a5c0de000004"
+            ]
+        ]
+    },
+    {
+        "id": "a1e7a5c0de000004",
+        "type": "postgresql",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Guardar alerta",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1040,
+        "y": 200,
+        "wires": [
+            [
+                "a1e7a5c0de000005"
+            ]
+        ]
+    },
+    {
+        "id": "a1e7a5c0de000005",
+        "type": "function",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Avisar alerta",
+        "func": "const f = msg.payload[0];\nif (!f) return null;\nmsg.payload = {\n    tipo: 'alerta',\n    accion: msg.accion,\n    ubicacionId: f.ubicacion_id,\n    alerta: {\n        id: Number(f.id),\n        ubicacionId: f.ubicacion_id,\n        dispositivoId: f.dispositivo_id,\n        nodo: msg.aviso.nodo,\n        tipo: f.tipo,\n        variable: f.variable,\n        mensaje: f.mensaje,\n        abiertaEn: new Date(f.abierta_en).toISOString(),\n        cerradaEn: f.cerrada_en === null ? null : new Date(f.cerrada_en).toISOString(),\n        peorValor: f.peor_valor === null ? null : `${Number(f.peor_valor)}${msg.aviso.unidad}`,\n    },\n};\ndelete msg.query;\ndelete msg.params;\ndelete msg.pgsql;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1210,
+        "y": 200,
+        "wires": [
+            [
+                "a1e7a5c0de000006"
+            ]
+        ]
+    },
+    {
+        "id": "a1e7a5c0de000006",
+        "type": "link out",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Alerta guardada",
+        "mode": "link",
+        "links": [
+            "a1e7a5c0de000007"
+        ],
+        "x": 1345,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "a1e7a5c0de000007",
+        "type": "link in",
+        "z": "b2d4f6a8c0e1f302",
+        "name": "Alerta guardada",
+        "links": [
+            "a1e7a5c0de000006"
+        ],
+        "x": 175,
+        "y": 300,
+        "wires": [
+            [
+                "c0a2e4f6b8d7c90c"
             ]
         ]
     },

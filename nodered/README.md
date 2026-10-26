@@ -1,6 +1,6 @@
 # nodered
 
-Backend de TeleMon en Node-RED 4.0.9 con `node-red-contrib-postgresql`. Contiene la **recepción de lecturas** (#49), el **cálculo de Rs/R0** (#53), la **API de últimas lecturas** y el **WebSocket** `/ws/lecturas` (#54) y la **sesión** con login, token y permisos (#63).
+Backend de TeleMon en Node-RED 4.0.9 con `node-red-contrib-postgresql`. Contiene la **recepción de lecturas** (#49), el **cálculo de Rs/R0** (#53), la **API de últimas lecturas** y el **WebSocket** `/ws/lecturas` (#54) la **sesión** con login, token y permisos (#63), el **inventario** de monitores (#66) y el **motor de alertas** UMBRAL y SENSOR (#69).
 
 ## Levantar
 
@@ -35,14 +35,15 @@ El resto de `data/` lo genera Node-RED y no se sube. Si se cambia el flujo en el
 
 ```text
 [mqtt in telemetria/+/lecturas] → [Validar trama] → [Buscar monitor] → [Calcular aire y tiempos]
-  → [Guardar lectura] → [Preparar evento] → [link out «Lectura guardada»]
+  → [Guardar lectura] → [Preparar evento] ─┬→ [link out «Lectura guardada»]
+                                           └→ [Buscar umbrales y alertas] → … (ver «Alertas»)
 ```
 
 1. **Validar trama.** Toma la hora de llegada antes de consultar la base. Exige el tema `telemetria/<ID>/lecturas` con un ID de 12 caracteres hexadecimales en mayúsculas, un objeto JSON y una MAC que, en mayúsculas y sin `:`, sea igual al ID del tema.
 2. **Buscar monitor** por su MAC.
 3. **Calcular aire y tiempos.** Solo sigue si el monitor está `en_uso`, tiene ubicación y esa ubicación es de su mismo cliente. Calcula la latencia y Rs/R0.
 4. **Guardar lectura.** Una sola sentencia actualiza el monitor (última lectura, RSSI, uptime y firmware) e inserta la lectura, y solo si el monitor sigue `en_uso` en esa ubicación. Si algo falla no se guarda nada y no sale ningún evento. Un mensaje más viejo no hace retroceder los datos del monitor, y un RSSI, uptime o firmware nulo no borra el último conocido.
-5. **Preparar evento.** Deja en `msg.payload` el aviso de la lectura guardada (`tipo`, `ubicacionId`, `dispositivoId`, `fecha`, las tres variables, `rsR0`, `nivelAire`) y lo pasa a «Lectura guardada». De ahí sale al WebSocket; las alertas (#69, #74) y los reinicios (#76) se conectan en el mismo punto.
+5. **Preparar evento.** Deja en `msg.payload` el aviso de la lectura guardada (`tipo`, `ubicacionId`, `dispositivoId`, `fecha`, las tres variables, `rsR0`, `nivelAire`) y lo pasa a «Lectura guardada». De ahí sale al WebSocket. El mismo mensaje entra también a las alertas (#69); la alerta sin conexión (#74) y los reinicios (#76) se conectan en el mismo punto.
 
 Cada campo se acepta solo si es un número dentro del rango físico de `firmware/include/config.h`. Si no lo es, se guarda como `null` y el resto de la lectura no se pierde. El texto `"22.8"` no se toma como número y `null` no pasa a cero.
 
@@ -144,6 +145,111 @@ La primera función de la ruta empieza con `if (!msg.sesion) return [null, msg];
 ### `POST /api/logout`
 
 Responde `{ ok: true }`. El token se borra en el navegador; no hay lista de tokens revocados, así que un token sigue valiendo hasta que vence (12 h).
+
+## Flujo «Inventario» (#66)
+
+```text
+[link in «consultar monitores»] → [Armar consulta de monitores] → [Monitores] → [Dar forma de monitor] → [link out «volver»]
+[GET /api/admin/dispositivos] → [verificar sesión] → [Validar filtro] → [consultar monitores] → respuesta
+[POST /api/admin/dispositivos] → [verificar sesión] → [Validar monitor nuevo] → [MAC y cliente] → [Preparar registro]
+  → [Registrar monitor] → [Comprobar registro] → [consultar monitores] → [Responder monitor]
+[PATCH /api/admin/dispositivos/:id] → [verificar sesión] → [Validar reserva] → [Monitor y cliente] → [Preparar reserva]
+  → [Guardar reserva] → [Comprobar reserva] → [consultar monitores] → [Responder monitor]
+```
+
+Las tres rutas son solo del admin: sin token 401 y con token de cliente 403 `No tienes permiso.`. Cada monitor tiene la forma de `frontend/src/api/demo/admin.js`:
+
+```json
+{
+  "id": 4,
+  "mac": "AA:BB:CC:DD:EE:01",
+  "codigo": "F6C6-W7SX",
+  "estado": "reservado",
+  "clienteId": 1,
+  "cliente": "Red Escolar Valle Alto",
+  "ubicacion": null,
+  "nodo": null,
+  "conexion": "nunca",
+  "ultimaLectura": null,
+  "r0": null,
+  "notas": ""
+}
+```
+
+- `conexion`: `nunca` sin lecturas; `en_linea` si la última lectura es más reciente que la espera de su ubicación (120 s si no tiene ubicación); si no, `sin_conexion`.
+- El subflujo «consultar monitores» recibe `msg.filtro` (`{}`, `{ estado }` o `{ id }`) y devuelve la lista con esa forma. Lo pueden reusar la ficha (#70) y la activación (#67).
+
+### `GET /api/admin/dispositivos?estado=`
+
+La lista, del más nuevo al más viejo. `estado` es `todos` (por defecto), `disponible`, `reservado`, `en_uso`, `desactivado` o `retirado`; otro valor → 400 `Estado no válido.`.
+
+### `POST /api/admin/dispositivos` con `{ mac, clienteId? }`
+
+Registra el monitor con un código `XXXX-XXXX` al azar (`crypto.randomInt`, sin 0/O ni 1/I). Con `clienteId` queda `reservado` para ese cliente; sin él, `disponible`. Anota «Registrado con el código …» y, si corresponde, «Reservado para …» en `eventos_dispositivo` con el admin que lo hizo. Responde 201 con el monitor.
+
+| Caso | Respuesta |
+|---|---|
+| MAC que no es `AA:BB:CC:DD:EE:FF` (se aceptan minúsculas y espacios alrededor) | 400 `La MAC debe tener el formato AA:BB:CC:DD:EE:FF.` |
+| `clienteId` que no es un entero positivo | 400 `Cliente no válido.` |
+| MAC ya registrada (también si dos registros llegan a la vez) | 409 `Esa MAC ya está registrada.` |
+| Cliente inexistente | 404 `Cliente no encontrado.` |
+| Cliente suspendido | 409 `No se puede reservar para un cliente suspendido.` |
+
+### `PATCH /api/admin/dispositivos/:id` con `{ clienteId }`
+
+Reserva el monitor para un cliente (`clienteId`) o quita la reserva (`null`, vuelve a `disponible`). Anota «Reservado para …» o «Reserva quitada». Responde el monitor actualizado; si no cambia nada, lo responde sin anotar.
+
+| Caso | Respuesta |
+|---|---|
+| ID que no es un entero positivo | 400 `Monitor no válido.` |
+| Sin `clienteId` en el cuerpo | 400 `No hay cambios que guardar.` (`r0` y `notas` son de la ficha, #70) |
+| Monitor inexistente | 404 `Monitor no encontrado.` |
+| Monitor `en_uso`, `desactivado` o `retirado` | 409 `Solo se puede reservar un monitor disponible o reservado.` |
+| Cliente inexistente o suspendido | 404 o 409, como en el registro |
+
+## Alertas UMBRAL y SENSOR (#69)
+
+```text
+[Preparar evento] → [Buscar umbrales y alertas] → [Umbrales y alertas abiertas] → [Evaluar alertas]
+  → [Guardar alerta] → [Avisar alerta] → [link out «Alerta guardada»] → (API y tiempo real) WebSocket
+```
+
+Con cada lectura guardada se leen los umbrales **activos** de la ubicación y las alertas abiertas del monitor, así que un cambio de umbral vale desde la siguiente lectura. Las variables son `temperatura`, `humedad`, `presion` y `calidad_aire` (Rs/R0).
+
+| Tipo | Se abre | Se cierra (`motivo_cierre`) |
+|---|---|---|
+| UMBRAL | 2 lecturas seguidas `< valor_min` o `> valor_max` | 2 lecturas seguidas dentro del rango (`volvió al rango`), o si el umbral se desactiva o se borra (`umbral desactivado`) |
+| SENSOR | El valor llega nulo 3 lecturas seguidas. El MQ-135 con `uptime` < 180 s no cuenta (precalentamiento) | Llega un valor (`el sensor volvió a responder`) |
+
+- Un valor nulo no cuenta ni como fuera ni como dentro del rango. La calidad del aire sin Rs/R0 (sin R0) no abre UMBRAL.
+- Mientras una UMBRAL está abierta no se repite: si llega un valor más lejos del rango, se guarda como `peor_valor`.
+- Mensajes: `Temperatura sobre el máximo (28 °C)`, `Humedad bajo el mínimo (30 %)`, `Calidad del aire en nivel malo` (o `moderado`), `Presión sin respuesta`.
+- Los contadores de lecturas seguidas viven en el contexto del flujo (`contadoresAlertas`, clave `dispositivo:variable`). Si Node-RED se reinicia, vuelven a cero: una alerta abierta se cierra igual con las 2 lecturas siguientes dentro del rango.
+- El índice `uq_alerta_abierta` impide dos alertas abiertas iguales; el `INSERT` usa `ON CONFLICT DO NOTHING` y en ese caso no se avisa.
+
+Cada alerta abierta, actualizada o cerrada sale por `/ws/lecturas` con la forma de `frontend/src/api/demo/datos.js` (`ALERTAS`):
+
+```json
+{
+  "tipo": "alerta",
+  "accion": "abierta",
+  "ubicacionId": 1,
+  "alerta": {
+    "id": 1,
+    "ubicacionId": 1,
+    "dispositivoId": 1,
+    "nodo": "Aula 3",
+    "tipo": "UMBRAL",
+    "variable": "temperatura",
+    "mensaje": "Temperatura sobre el máximo (28 °C)",
+    "abiertaEn": "2026-10-26T19:59:47.434Z",
+    "cerradaEn": null,
+    "peorValor": "31 °C"
+  }
+}
+```
+
+`accion` es `abierta`, `actualizada` (peor valor) o `cerrada`. El Panel ya recarga sus alertas con cualquier mensaje `tipo: "alerta"` de su ubicación.
 
 ## Calidad del aire (#53)
 
