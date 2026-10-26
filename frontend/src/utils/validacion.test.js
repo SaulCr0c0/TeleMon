@@ -40,7 +40,10 @@ describe('MAC y código', () => {
   it('normaliza el código de activación', () => {
     expect(normalizarCodigo('w3fj7kta')).toBe('W3FJ-7KTA');
     expect(normalizarCodigo('W3FJ-7KTA')).toBe('W3FJ-7KTA');
+    expect(normalizarCodigo(' w3fj 7kta ')).toBe('W3FJ-7KTA');
     expect(normalizarCodigo('W3FJ')).toBeNull();
+    expect(normalizarCodigo('W3FJ$7KTA')).toBeNull();
+    expect(normalizarCodigo(null)).toBeNull();
   });
 });
 

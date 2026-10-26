@@ -43,7 +43,8 @@ async function pedir(metodo, ruta, cuerpo) {
     body: cuerpo !== undefined ? JSON.stringify(cuerpo) : undefined,
   });
 
-  if (respuesta.status === 404) {
+  const esRutaDeNodos = /^\/api\/ubicaciones\/[^/]+\/dispositivos(?:\?|$)/.test(ruta);
+  if (respuesta.status === 404 && !esRutaDeNodos) {
     const demo = await resolverDemo(metodo, ruta, cuerpo, { silencioso: true });
     if (demo !== undefined) return demo;
   }
