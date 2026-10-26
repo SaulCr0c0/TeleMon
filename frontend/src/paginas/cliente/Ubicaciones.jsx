@@ -128,11 +128,18 @@ export default function Ubicaciones() {
     setGuardando(true);
     setErrorGuardar('');
     try {
+      const cambios = borrador.map((u) => ({
+        ...u,
+        nombre: u.nombre.trim(),
+        localidad: u.localidad.trim(),
+      }));
+      if (cambios.some((u) => !u.nombre)) {
+        throw new Error('Escribe el nombre de cada ubicación.');
+      }
       const originales = Object.fromEntries((datos ?? []).map((u) => [u.id, u]));
       const archivadas = [];
-      for (const u of borrador) {
-        const nombre = u.nombre.trim() || 'Nueva ubicación';
-        const localidad = u.localidad.trim();
+      for (const u of cambios) {
+        const { nombre, localidad } = u;
         if (u.nueva) {
           await api.post('/api/ubicaciones', { localidad, nombre });
         } else if (u.archivar) {

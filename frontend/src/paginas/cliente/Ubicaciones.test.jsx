@@ -1,10 +1,13 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { api } from '../../api/cliente';
 import { dibujar } from '../../test/dibujar';
 import Ubicaciones from './Ubicaciones';
 
 const usuario = { nombre: 'Ana Rojas', rol: 'cliente', monitores: 7 };
+
+afterEach(() => vi.restoreAllMocks());
 
 async function editar() {
   await screen.findByRole('link', { name: /Escuela Adela Zamudio/ });
@@ -44,6 +47,45 @@ describe('Ubicaciones', () => {
     expect(await screen.findByRole('link', { name: /Laboratorio de Química/ })).toHaveTextContent(
       'Sin nodos todavía',
     );
+  });
+
+  it('rechaza una ubicación nueva sin nombre y conserva el formulario', async () => {
+    dibujar(<Ubicaciones />, { usuario });
+    await editar();
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir ubicación' }));
+    const nombres = screen.getAllByLabelText('Nombre de la ubicación');
+    await userEvent.type(nombres[nombres.length - 1], '   ');
+    const crear = vi.spyOn(api, 'post');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Escribe el nombre de cada ubicación.');
+    expect(crear).not.toHaveBeenCalled();
+    expect(nombres[nombres.length - 1]).toHaveValue('   ');
+  });
+
+  it('rechaza un nombre vacío al renombrar sin enviar cambios', async () => {
+    dibujar(<Ubicaciones />, { usuario });
+    await editar();
+    await userEvent.clear(screen.getAllByLabelText('Nombre de la ubicación')[0]);
+    const cambiar = vi.spyOn(api, 'patch');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Escribe el nombre de cada ubicación.');
+    expect(cambiar).not.toHaveBeenCalled();
+  });
+
+  it('valida toda la lista antes de guardar cambios anteriores a un nombre vacío', async () => {
+    dibujar(<Ubicaciones />, { usuario });
+    await editar();
+    await userEvent.type(screen.getAllByLabelText('Nombre de la ubicación')[0], ' Central');
+    await userEvent.click(screen.getAllByRole('button', { name: 'Archivar' })[0]);
+    await userEvent.click(screen.getByRole('button', { name: 'Añadir ubicación' }));
+    const nombres = screen.getAllByLabelText('Nombre de la ubicación');
+    await userEvent.type(nombres[nombres.length - 1], '   ');
+    const cambiar = vi.spyOn(api, 'patch');
+    const crear = vi.spyOn(api, 'post');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Escribe el nombre de cada ubicación.');
+    expect(cambiar).not.toHaveBeenCalled();
+    expect(crear).not.toHaveBeenCalled();
   });
 
   it('archiva en lugar de borrar y avisa que el historial se conserva', async () => {
