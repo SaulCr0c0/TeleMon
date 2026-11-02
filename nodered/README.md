@@ -439,6 +439,15 @@ Al llegar una lectura, «Evaluar alertas» cierra la `SIN_CONEXION` abierta con 
 
 Cada apertura o cierre sale por `/ws/lecturas` con la misma forma que las demás alertas (`tipo: "alerta"`, `accion: "abierta"` o `"cerrada"`).
 
+## Flujo «Base de datos» (#45)
+
+```text
+[Cada minuto] → [Agregar por minuto] → [Lecturas por minuto] → [Contar minutos]
+[Cada día a las 03:30] → [Limpiar lecturas viejas] → [Borrar crudas de más de 30 días] → [Anotar limpieza]
+```
+
+Llama a las funciones de `database/03_agregacion.sql`: `agregar_lecturas_minuto()` cada minuto (y una vez 20 s después de arrancar) y `limpiar_lecturas(30)` cada día a las 03:30. El estado de cada nodo muestra cuántos minutos se agregaron o cuántas lecturas se borraron la última vez, y la limpieza queda también en el log.
+
 ## Calidad del aire (#53)
 
 Con el R0 de cada monitor (`dispositivos.mq135_r0_kohm`):
