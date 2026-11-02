@@ -3533,5 +3533,159 @@
         "x": 580,
         "y": 660,
         "wires": []
+    },
+    {
+        "id": "da7ab45ec0de0001",
+        "type": "tab",
+        "label": "Base de datos",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "da7ab45ec0de0002",
+        "type": "inject",
+        "z": "da7ab45ec0de0001",
+        "name": "Cada minuto",
+        "props": [],
+        "repeat": "60",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "20",
+        "topic": "",
+        "x": 150,
+        "y": 80,
+        "wires": [
+            [
+                "da7ab45ec0de0003"
+            ]
+        ]
+    },
+    {
+        "id": "da7ab45ec0de0003",
+        "type": "function",
+        "z": "da7ab45ec0de0001",
+        "name": "Agregar por minuto",
+        "func": "msg.query = 'SELECT agregar_lecturas_minuto() AS filas';\nmsg.params = [];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 80,
+        "wires": [
+            [
+                "da7ab45ec0de0004"
+            ]
+        ]
+    },
+    {
+        "id": "da7ab45ec0de0004",
+        "type": "postgresql",
+        "z": "da7ab45ec0de0001",
+        "name": "Lecturas por minuto",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 590,
+        "y": 80,
+        "wires": [
+            [
+                "da7ab45ec0de0005"
+            ]
+        ]
+    },
+    {
+        "id": "da7ab45ec0de0005",
+        "type": "function",
+        "z": "da7ab45ec0de0001",
+        "name": "Contar minutos",
+        "func": "node.status({ text: `${msg.payload[0].filas} minutos · ${new Date().toLocaleTimeString('es-BO')}` });\nreturn null;",
+        "outputs": 0,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 800,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "da7ab45ec0de0006",
+        "type": "inject",
+        "z": "da7ab45ec0de0001",
+        "name": "Cada día a las 03:30",
+        "props": [],
+        "repeat": "",
+        "crontab": "30 03 * * *",
+        "once": false,
+        "onceDelay": "",
+        "topic": "",
+        "x": 170,
+        "y": 160,
+        "wires": [
+            [
+                "da7ab45ec0de0007"
+            ]
+        ]
+    },
+    {
+        "id": "da7ab45ec0de0007",
+        "type": "function",
+        "z": "da7ab45ec0de0001",
+        "name": "Limpiar lecturas viejas",
+        "func": "msg.query = 'SELECT limpiar_lecturas(30) AS borradas';\nmsg.params = [];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 390,
+        "y": 160,
+        "wires": [
+            [
+                "da7ab45ec0de0008"
+            ]
+        ]
+    },
+    {
+        "id": "da7ab45ec0de0008",
+        "type": "postgresql",
+        "z": "da7ab45ec0de0001",
+        "name": "Borrar crudas de más de 30 días",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 630,
+        "y": 160,
+        "wires": [
+            [
+                "da7ab45ec0de0009"
+            ]
+        ]
+    },
+    {
+        "id": "da7ab45ec0de0009",
+        "type": "function",
+        "z": "da7ab45ec0de0001",
+        "name": "Anotar limpieza",
+        "func": "node.log(`Lecturas crudas borradas: ${msg.payload[0].borradas}`);\nnode.status({ text: `${msg.payload[0].borradas} borradas · ${new Date().toLocaleDateString('es-BO')}` });\nreturn null;",
+        "outputs": 0,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 860,
+        "y": 160,
+        "wires": []
     }
 ]

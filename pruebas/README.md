@@ -67,6 +67,16 @@ python -B -m unittest discover -s pruebas -p test_sin_conexion.py -v
 
 Verifica que la alerta se abra una sola vez pasada la espera de su ubicación y avise por el WebSocket, que no se abra antes de la espera, para monitores sin lecturas ni para los que no están en uso, que se cierre con la primera lectura, y que se cierre si el monitor deja de estar en uso.
 
+## Agregación por minuto y limpieza (#45)
+
+`test_agregacion.py` prueba las funciones de `database/03_agregacion.sql` contra PostgreSQL 17 y que el flujo «Base de datos» de Node-RED las llame solo. En el flujo temporal de la prueba los dos inject corren cada 1 s.
+
+```bash
+python -B -m unittest discover -s pruebas -p test_agregacion.py -v
+```
+
+Verifica una fila por nodo y minuto cerrado con promedio, mínimo, máximo y cantidad, que el minuto en curso no se agregue, que repetir no duplique y que una lectura tardía corrija su minuto, que la limpieza borre solo las crudas de más de 30 días y conserve las agregadas, y que Node-RED haga ambas cosas sin intervención.
+
 ## Carga MQTT
 
 `carga.py` simula monitores publicando en `telemetria/<ID>/lecturas` con MQTT 3.1.1 y QoS 0. Usa un cliente oyente adicional para medir el recorrido publicador → broker → oyente. No mide persistencia en PostgreSQL ni actualización del navegador.
