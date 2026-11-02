@@ -16,7 +16,8 @@ export default [
   [
     'POST',
     '/api/registro',
-    (_p, { organizacion, nombre, email = '', clave }) => {
+    (_p, { organizacion, nombre, email = '', clave, terminos }) => {
+      if (terminos !== true) throw new ErrorApi(400, 'Debes aceptar los términos para continuar.');
       const correo = email.trim().toLowerCase();
       if (USUARIOS.some((u) => u.email === correo)) {
         throw new ErrorApi(409, 'Ya existe una cuenta con ese correo. Inicia sesión.');

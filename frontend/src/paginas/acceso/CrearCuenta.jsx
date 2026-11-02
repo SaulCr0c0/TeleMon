@@ -54,6 +54,7 @@ export default function CrearCuenta() {
         nombre: form.nombre.trim(),
         email: form.email.trim().toLowerCase(),
         clave: form.clave,
+        terminos: form.terminos,
       });
       setCreada(true);
     } catch (e) {

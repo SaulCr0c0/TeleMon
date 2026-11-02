@@ -150,6 +150,7 @@ Requisitos y alcance: [pruebas de ubicaciones](../pruebas/README.md#api-de-ubica
 [POST /api/clave] → [link call «verificar sesión»] → [Validar clave nueva] → [Usuario de la sesión]
   → [Comprobar clave actual] → [Guardar clave] → [Responder ok]
 [POST /api/logout] → [Responder ok]
+[POST /api/registro] → [Validar registro] → [Crear cliente y usuario] → [Abrir sesión]
 ```
 
 Las funciones usan `bcryptjs` (`bcrypt`) y `jsonwebtoken` (`jwt`) desde **Setup → Modules**; Node-RED los instala solo al arrancar.
@@ -182,6 +183,22 @@ La primera función de la ruta empieza con `if (!msg.sesion) return [null, msg];
 - `actual` es obligatoria, salvo si el usuario tiene `debe_cambiar_clave` (primer ingreso con contraseña temporal, pantalla «Crear contraseña»). Así un token robado no basta para cambiar la contraseña.
 - Guarda `bcrypt.hashSync(nueva, 10)` y `debe_cambiar_clave = false`. Responde `{ ok: true }`.
 - Contraseña actual incorrecta → **400** `La contraseña actual no es correcta.` No es 401 porque el frontend cierra la sesión ante cualquier 401.
+
+### `POST /api/registro` con `{ organizacion, nombre, email, clave, terminos }` (#65)
+
+Crea en una sola sentencia (una transacción) el cliente con `origen = 'registro'` y su usuario con rol cliente y la clave en bcrypt. El cliente queda **sin monitores**. Responde **201** con `{ token, usuario }`, igual que el login, así el frontend entra directo.
+
+| Caso | Respuesta |
+|---|---|
+| Organización o nombre vacíos | 400 `Completa la organización y tu nombre.` |
+| Organización o nombre de más de 120 caracteres | 400 `La organización y el nombre pueden tener hasta 120 caracteres.` |
+| Correo con formato inválido | 400 `El correo no es válido.` |
+| Contraseña de menos de 8 caracteres | 400 `La contraseña debe tener al menos 8 caracteres.` |
+| Contraseña de más de 72 bytes (límite de bcrypt) | 400 `La contraseña puede tener hasta 72 caracteres.` |
+| `terminos` distinto de `true` | 400 `Debes aceptar los términos para continuar.` |
+| Correo ya registrado (sin distinguir mayúsculas ni espacios) | 409 `Ya existe una cuenta con ese correo. Inicia sesión.` |
+
+Si dos registros con el mismo correo llegan a la vez, el índice único de `usuarios.email` rechaza el segundo, se revierte también su cliente y el «Responder error» de la sesión lo convierte en 409.
 
 ### `POST /api/logout`
 
