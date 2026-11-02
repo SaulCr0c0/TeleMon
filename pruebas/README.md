@@ -37,6 +37,16 @@ python -B -m unittest discover -s pruebas -p test_registro.py -v
 
 Verifica que se cree el cliente sin monitores con su usuario y que pueda iniciar sesión, el 409 por correo repetido (también con mayúsculas y espacios), los 400 por contraseña corta o larga, correo inválido, datos vacíos y términos no aceptados, sin dejar filas creadas, y que de seis registros simultáneos con el mismo correo solo uno se cree.
 
+## Clientes del admin (#68)
+
+`test_clientes.py` prueba las rutas `/api/admin/clientes` junto con el login y el inventario reales, con el mismo entorno aislado de `test_ubicaciones.py`.
+
+```bash
+python -B -m unittest discover -s pruebas -p test_clientes.py -v
+```
+
+Verifica que solo el admin entre (401 y 403), la lista con origen, estado y conteos, la cuenta manual con contraseña temporal que solo aparece al crearla o restablecerla y que obliga a cambiarla, los 400, 404 y 409, la ficha con ubicaciones y monitores del cliente, la edición del correo de ingreso, que un cliente suspendido no pueda entrar y que al reactivarlo conserve sus datos.
+
 ## Carga MQTT
 
 `carga.py` simula monitores publicando en `telemetria/<ID>/lecturas` con MQTT 3.1.1 y QoS 0. Usa un cliente oyente adicional para medir el recorrido publicador → broker → oyente. No mide persistencia en PostgreSQL ni actualización del navegador.

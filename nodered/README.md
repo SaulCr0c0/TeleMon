@@ -235,7 +235,7 @@ Las tres rutas son solo del admin: sin token 401 y con token de cliente 403 `No 
 ```
 
 - `conexion`: `nunca` sin lecturas; `en_linea` si la última lectura es más reciente que la espera de su ubicación (120 s si no tiene ubicación); si no, `sin_conexion`.
-- El subflujo «consultar monitores» recibe `msg.filtro` (`{}`, `{ estado }` o `{ id }`) y devuelve la lista con esa forma. Lo pueden reusar la ficha (#70) y la activación (#67).
+- El subflujo «consultar monitores» recibe `msg.filtro` (`{}`, `{ estado }`, `{ id }` o `{ clienteId }`) y devuelve la lista con esa forma. Lo usa la ficha del cliente (#68) y lo pueden reusar la ficha del monitor (#70) y la activación (#67).
 
 ### `GET /api/admin/dispositivos?estado=`
 
@@ -264,6 +264,46 @@ Reserva el monitor para un cliente (`clienteId`) o quita la reserva (`null`, vue
 | Monitor inexistente | 404 `Monitor no encontrado.` |
 | Monitor `en_uso`, `desactivado` o `retirado` | 409 `Solo se puede reservar un monitor disponible o reservado.` |
 | Cliente inexistente o suspendido | 404 o 409, como en el registro |
+
+## Flujo «Clientes» (#68)
+
+Solo para el admin (`/api/admin/...`): sin sesión → 401, con sesión de cliente → 403. Las respuestas llevan `Cache-Control: no-store`.
+
+```text
+[link in «consultar clientes»] → [Armar consulta de clientes] → [Clientes] → [Dar forma de cliente] → [link out «volver»]
+[GET /api/admin/clientes] → [link call «verificar sesión»] → [Solo admin] → [link call «consultar clientes»]
+[POST /api/admin/clientes] → … → [Validar cliente nuevo] → [Crear cliente y usuario] → [Comprobar cliente nuevo]
+  → [link call «consultar clientes»] → [Responder cuenta creada]
+[GET /api/admin/clientes/:id] → … → [Validar cliente] → [link call «consultar clientes»] → [Buscar ubicaciones]
+  → [Ubicaciones del cliente] → [Pedir monitores] → [link call «consultar monitores»] → [Responder ficha]
+[PATCH /api/admin/clientes/:id] → … → [Validar cambios] → [Guardar cambios] → [Comprobar cambios]
+  → [link call «consultar clientes»] → [Responder cliente]
+[POST /api/admin/clientes/:id/restablecer-clave] → … → [Generar clave temporal] → [Guardar clave temporal]
+  → [Responder clave temporal]
+```
+
+El subflujo «consultar clientes» devuelve la forma de `frontend/src/api/demo/admin.js`: `{ id, organizacion, nombre, email, origen, estado, ubicaciones, monitores, desde, ultimoIngreso }`. El estado se calcula: `suspendida` si `clientes.suspendido_en` tiene fecha, `activa` si tiene monitores en uso y `sin_monitores` si no. `ubicaciones` cuenta las no archivadas y `monitores` los que están en uso.
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /api/admin/clientes` | Lista de clientes, los más nuevos primero, con su origen (`registro` o `admin`) |
+| `POST /api/admin/clientes` con `{ organizacion, nombre, email }` | Crea el cliente (`origen = 'admin'`) y su usuario con una contraseña temporal aleatoria y `debe_cambiar_clave = true`. Responde **201** con `{ cliente, claveTemporal }`. La contraseña temporal no se guarda en texto y solo aparece en esta respuesta |
+| `GET /api/admin/clientes/:id` | El cliente con `listaUbicaciones` (`{ id, localidad, nombre, archivada, nodos }`) y `listaMonitores` (forma del inventario) |
+| `PATCH /api/admin/clientes/:id` con `{ organizacion?, nombre?, email? }` | Edita los datos. El correo cambia también el de ingreso del usuario |
+| `PATCH /api/admin/clientes/:id` con `{ estado }` | `suspendida` guarda la fecha en `suspendido_en` (el login responde 403); `activa` o `sin_monitores` la borra y el cliente vuelve a entrar con sus datos intactos |
+| `POST /api/admin/clientes/:id/restablecer-clave` | Nueva contraseña temporal con `debe_cambiar_clave = true`. Responde `{ claveTemporal }` una sola vez |
+
+La contraseña temporal tiene la forma `XXXX-XXXX-XXXX`, con letras y números sin los que se confunden (`I`, `L`, `O`, `0`, `1`), y se genera con `crypto.randomInt`.
+
+| Caso | Respuesta |
+|---|---|
+| Organización o contacto vacíos, o de más de 120 caracteres | 400 |
+| Correo inválido | 400 `El correo no es válido.` |
+| `estado` distinto de `activa`, `sin_monitores` o `suspendida`, o `PATCH` sin cambios | 400 |
+| Correo ya usado por otra cuenta (también si llegan dos a la vez) | 409 `Ya existe una cuenta con ese correo.` |
+| Id inexistente o que no es un número | 404 `Cliente no encontrado.` |
+
+Para la ficha, «consultar monitores» del inventario acepta además `msg.filtro.clienteId`.
 
 ## Flujo «Activación y nodos» (#67)
 
