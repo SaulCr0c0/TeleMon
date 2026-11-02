@@ -3837,5 +3837,155 @@
                 "415702a1c0de0007"
             ]
         ]
+    },
+    {
+        "id": "9a7f1ca5c0de0001",
+        "type": "tab",
+        "label": "Gráficas",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "9a7f1ca5c0de0002",
+        "type": "http in",
+        "z": "9a7f1ca5c0de0001",
+        "name": "",
+        "url": "/api/dispositivos/:id/serie",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 80,
+        "wires": [
+            [
+                "9a7f1ca5c0de0003"
+            ]
+        ]
+    },
+    {
+        "id": "9a7f1ca5c0de0003",
+        "type": "link call",
+        "z": "9a7f1ca5c0de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 410,
+        "y": 80,
+        "wires": [
+            [
+                "9a7f1ca5c0de0004"
+            ]
+        ]
+    },
+    {
+        "id": "9a7f1ca5c0de0004",
+        "type": "function",
+        "z": "9a7f1ca5c0de0001",
+        "name": "Validar serie",
+        "func": "if (!msg.sesion) return [null, msg];\nmsg.headers = { 'Cache-Control': 'no-store' };\nconst negar = (mensaje) => {\n    msg.statusCode = 400;\n    msg.payload = { mensaje };\n    return [null, msg];\n};\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) && Number(texto) <= 2147483647 ? Number(texto) : null;\nif (id === null) return negar('Nodo no válido.');\nconst periodo = msg.req.query.periodo ?? '1h';\nconst variable = msg.req.query.variable ?? 'temperatura';\nconst COLUMNAS = {\n    temperatura: ['temperatura', 'temp_avg', 2],\n    humedad: ['humedad', 'hum_avg', 2],\n    presion: ['presion', 'pres_avg', 2],\n    calidad_aire: ['rs_r0', 'rs_r0_avg', 3],\n};\nif (!['1h', '24h', '7d'].includes(periodo)) return negar('Periodo no válido.');\nif (!COLUMNAS[variable]) return negar('Variable no válida.');\nconst [cruda, promedio, decimales] = COLUMNAS[variable];\nlet puntos;\nif (periodo === '1h') {\n    puntos = `SELECT l.fecha_hora AS fecha, l.${cruda} AS valor\n  FROM lecturas l, nodo\n  WHERE l.dispositivo_id = nodo.id AND l.ubicacion_id = nodo.ubicacion_id AND l.fecha_hora > now() - interval '1 hour'`;\n} else if (periodo === '24h') {\n    puntos = `SELECT m.minuto AS fecha, m.${promedio} AS valor\n  FROM lecturas_minuto m, nodo\n  WHERE m.dispositivo_id = nodo.id AND m.ubicacion_id = nodo.ubicacion_id AND m.minuto > now() - interval '24 hours'`;\n} else {\n    puntos = `SELECT date_trunc('hour', m.minuto) AS fecha,\n    round(sum(m.${promedio} * m.n_lecturas) / NULLIF(sum(m.n_lecturas), 0), ${decimales}) AS valor\n  FROM lecturas_minuto m, nodo\n  WHERE m.dispositivo_id = nodo.id AND m.ubicacion_id = nodo.ubicacion_id AND m.minuto > now() - interval '7 days'\n    AND m.${promedio} IS NOT NULL\n  GROUP BY 1`;\n}\nmsg.serie = { variable, periodo };\nmsg.query = `WITH nodo AS (\n  SELECT d.id, d.ubicacion_id\n  FROM dispositivos d\n  JOIN ubicaciones u ON u.id = d.ubicacion_id\n  WHERE d.id = $1 AND d.cliente_id = $2 AND u.cliente_id = $2\n), puntos AS (\n  ${puntos}\n)\nSELECT (SELECT count(*) FROM nodo)::int AS propio,\n  (SELECT json_build_object('min', x.valor_min, 'max', x.valor_max)\n    FROM umbrales x, nodo WHERE x.ubicacion_id = nodo.ubicacion_id AND x.variable = $3 AND x.activo) AS rango,\n  COALESCE((SELECT json_agg(json_build_object('fecha', fecha, 'valor', valor) ORDER BY fecha)\n    FROM puntos WHERE valor IS NOT NULL), '[]'::json) AS puntos`;\nmsg.params = [id, msg.sesion.cliente ?? null, variable];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 80,
+        "wires": [
+            [
+                "9a7f1ca5c0de0005"
+            ],
+            [
+                "9a7f1ca5c0de0007"
+            ]
+        ]
+    },
+    {
+        "id": "9a7f1ca5c0de0005",
+        "type": "postgresql",
+        "z": "9a7f1ca5c0de0001",
+        "name": "Puntos y rango",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 790,
+        "y": 80,
+        "wires": [
+            [
+                "9a7f1ca5c0de0006"
+            ]
+        ]
+    },
+    {
+        "id": "9a7f1ca5c0de0006",
+        "type": "function",
+        "z": "9a7f1ca5c0de0001",
+        "name": "Responder serie",
+        "func": "const { variable, periodo } = msg.serie;\ndelete msg.serie;\nconst r = msg.payload[0];\nif (!r.propio) {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return msg;\n}\nconst numero = (valor) => (valor === null || valor === undefined ? null : Number(valor));\nmsg.statusCode = 200;\nmsg.payload = {\n    variable,\n    periodo,\n    rango: r.rango ? { min: numero(r.rango.min), max: numero(r.rango.max) } : null,\n    puntos: r.puntos.map((p) => ({ fecha: new Date(p.fecha).toISOString(), valor: Number(p.valor) })),\n};\ndelete msg.query;\ndelete msg.params;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 980,
+        "y": 80,
+        "wires": [
+            [
+                "9a7f1ca5c0de0007"
+            ]
+        ]
+    },
+    {
+        "id": "9a7f1ca5c0de0007",
+        "type": "http response",
+        "z": "9a7f1ca5c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1160,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "9a7f1ca5c0de0008",
+        "type": "catch",
+        "z": "9a7f1ca5c0de0001",
+        "name": "Errores de la serie",
+        "scope": null,
+        "uncaught": false,
+        "x": 180,
+        "y": 160,
+        "wires": [
+            [
+                "9a7f1ca5c0de0009"
+            ]
+        ]
+    },
+    {
+        "id": "9a7f1ca5c0de0009",
+        "type": "function",
+        "z": "9a7f1ca5c0de0001",
+        "name": "Responder error",
+        "func": "delete msg.serie;\nnode.error(`Gráficas: ${msg.error?.source?.name || 'API'}: ${msg.error?.message || 'Error inesperado'}`);\nmsg.statusCode = 500;\nmsg.headers = { 'Cache-Control': 'no-store' };\nmsg.payload = { mensaje: 'No se pudo consultar la serie. Intenta de nuevo.' };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 390,
+        "y": 160,
+        "wires": [
+            [
+                "9a7f1ca5c0de0007"
+            ]
+        ]
     }
 ]

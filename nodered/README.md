@@ -459,6 +459,24 @@ Cada apertura o cierre sale por `/ws/lecturas` con la misma forma que las demás
 - Errores 400: `Ubicación no válida.`, `Fecha no válida.`, `La fecha inicial debe ser anterior a la final.`, `Nodo no válido.` y `Agrupación no válida.`.
 - `database/03_agregacion.sql` agrega el índice `(ubicacion_id, minuto)` de `lecturas_minuto` para que 7 días por hora respondan en menos de 1 s.
 
+## Flujo «Gráficas» (#73)
+
+```text
+[GET /api/dispositivos/:id/serie] → [link call «verificar sesión»] → [Validar serie] → [Puntos y rango] → [Responder serie]
+```
+
+`GET /api/dispositivos/:id/serie?periodo=1h|24h|7d&variable=temperatura|humedad|presion|calidad_aire` responde `{ variable, periodo, rango, puntos }` con la forma de `frontend/src/api/demo/graficas.js`. `puntos` es `[{ fecha, valor }]`, del más viejo al más nuevo y sin valores nulos.
+
+| Periodo | Fuente |
+|---|---|
+| `1h` | Lecturas crudas de `lecturas` |
+| `24h` | Un punto por minuto de `lecturas_minuto` |
+| `7d` | Promedio por hora de `lecturas_minuto`, con el peso de `n_lecturas` |
+
+- `rango` es `{ min, max }` del umbral **activo** de esa variable en la ubicación del nodo, para dibujar la franja (en `calidad_aire`, `min` es el Rs/R0 mínimo). Sin umbral activo es `null`.
+- Solo se ven las lecturas tomadas en la ubicación actual del nodo. Así, si un monitor se libera y pasa a otro cliente, el nuevo dueño no ve los datos del anterior.
+- Un nodo de otro cliente o sin ubicación → 403. Periodo, variable o id inválidos → 400 (`Periodo no válido.`, `Variable no válida.`, `Nodo no válido.`). Por defecto, `1h` y `temperatura`.
+
 ## Flujo «Base de datos» (#45)
 
 ```text
