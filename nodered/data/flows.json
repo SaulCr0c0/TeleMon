@@ -1262,9 +1262,9 @@
         "id": "1a7e0d15c0de002a",
         "type": "function",
         "z": "1a7e0d15c0de0001",
-        "name": "Validar reserva",
-        "func": "if (!msg.sesion) return [null, msg];\nif (msg.sesion.rol !== 'admin') {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return [null, msg];\n}\n\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) && Number(texto) <= 2147483647 ? Number(texto) : null;\nif (id === null) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Monitor no válido.' };\n    return [null, msg];\n}\n\nif (!msg.payload || !('clienteId' in msg.payload)) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'No hay cambios que guardar.' };\n    return [null, msg];\n}\n\nconst crudo = msg.payload?.clienteId;\nconst clienteId = crudo === null || crudo === undefined || crudo === '' ? null : Number(crudo);\nif (clienteId !== null && (!Number.isInteger(clienteId) || clienteId < 1 || clienteId > 2147483647)) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Cliente no válido.' };\n    return [null, msg];\n}\n\nmsg.reserva = { id, clienteId };\nmsg.query = `SELECT d.id, d.estado, d.cliente_id, c.id AS cliente_nuevo, c.nombre AS organizacion, c.suspendido_en\nFROM dispositivos d\nLEFT JOIN clientes c ON c.id = $2\nWHERE d.id = $1`;\nmsg.params = [id, clienteId];\nreturn [msg, null];",
-        "outputs": 2,
+        "name": "Validar cambios",
+        "func": "if (!msg.sesion) return [null, msg, null];\nif (msg.sesion.rol !== 'admin') {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return [null, msg, null];\n}\n\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) && Number(texto) <= 2147483647 ? Number(texto) : null;\nif (id === null) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Monitor no válido.' };\n    return [null, msg, null];\n}\n\nconst cuerpo = msg.payload && typeof msg.payload === 'object' ? msg.payload : {};\nconst reserva = 'clienteId' in cuerpo;\nconst ficha = 'r0' in cuerpo || 'notas' in cuerpo;\nconst negar = (mensaje) => {\n    msg.statusCode = 400;\n    msg.payload = { mensaje };\n    return [null, msg, null];\n};\nif (!reserva && !ficha) return negar('No hay cambios que guardar.');\nif (reserva && ficha) return negar('Guarda la reserva por separado del R0 y las notas.');\nif (ficha) {\n    const eventos = [];\n    let r0 = null;\n    let notas = null;\n    if ('r0' in cuerpo) {\n        r0 = cuerpo.r0;\n        if (typeof r0 !== 'number' || !Number.isFinite(r0) || r0 <= 0 || r0 >= 100000) {\n            return negar('R0 debe ser un número mayor que 0.');\n        }\n        r0 = Math.round(r0 * 1000) / 1000;\n        if (r0 <= 0) return negar('R0 debe ser un número mayor que 0.');\n        eventos.push(`R0 del MQ-135 cargado: ${r0} kΩ`);\n    }\n    if ('notas' in cuerpo) {\n        if (typeof cuerpo.notas !== 'string') return negar('Las notas deben ser texto.');\n        notas = cuerpo.notas.trim();\n        if (notas.length > 2000) return negar('Las notas pueden tener hasta 2000 caracteres.');\n        eventos.push('Notas actualizadas');\n    }\n    msg.filtro = { id };\n    msg.query = `WITH cambio AS (\n  UPDATE dispositivos\n  SET mq135_r0_kohm = COALESCE($2::numeric, mq135_r0_kohm), notas = COALESCE($3::text, notas)\n  WHERE id = $1\n  RETURNING id\n), eventos AS (\n  INSERT INTO eventos_dispositivo (dispositivo_id, texto, usuario_id)\n  SELECT cambio.id, t.texto, $4 FROM cambio, unnest($5::text[]) WITH ORDINALITY AS t (texto, orden)\n  ORDER BY t.orden\n)\nSELECT id FROM cambio`;\n    msg.params = [id, r0, notas, msg.sesion.sub, eventos];\n    return [null, null, msg];\n}\n\nconst crudo = msg.payload?.clienteId;\nconst clienteId = crudo === null || crudo === undefined || crudo === '' ? null : Number(crudo);\nif (clienteId !== null && (!Number.isInteger(clienteId) || clienteId < 1 || clienteId > 2147483647)) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Cliente no válido.' };\n    return [null, msg, null];\n}\n\nmsg.reserva = { id, clienteId };\nmsg.query = `SELECT d.id, d.estado, d.cliente_id, c.id AS cliente_nuevo, c.nombre AS organizacion, c.suspendido_en\nFROM dispositivos d\nLEFT JOIN clientes c ON c.id = $2\nWHERE d.id = $1`;\nmsg.params = [id, clienteId];\nreturn [msg, null, null];",
+        "outputs": 3,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
@@ -1278,6 +1278,9 @@
             ],
             [
                 "1a7e0d15c0de0031"
+            ],
+            [
+                "1a7e0d15c0de0101"
             ]
         ]
     },
@@ -1436,7 +1439,21 @@
             "1a7e0d15c0de002c",
             "1a7e0d15c0de002d",
             "1a7e0d15c0de002e",
-            "1a7e0d15c0de0030"
+            "1a7e0d15c0de0030",
+            "1a7e0d15c0de0101",
+            "1a7e0d15c0de0102",
+            "1a7e0d15c0de0112",
+            "1a7e0d15c0de0114",
+            "1a7e0d15c0de0115",
+            "1a7e0d15c0de0116",
+            "1a7e0d15c0de0122",
+            "1a7e0d15c0de0123",
+            "1a7e0d15c0de0124",
+            "1a7e0d15c0de0127",
+            "1a7e0d15c0de0132",
+            "1a7e0d15c0de0133",
+            "1a7e0d15c0de0134",
+            "1a7e0d15c0de0137"
         ],
         "uncaught": false,
         "x": 180,
@@ -1452,7 +1469,7 @@
         "type": "function",
         "z": "1a7e0d15c0de0001",
         "name": "Responder error",
-        "func": "node.error(`${msg.error.source.name || msg.error.source.type}: ${msg.error.message}`);\nmsg.statusCode = 500;\nmsg.payload = { mensaje: 'No se pudo completar la operación. Intenta de nuevo.' };\nreturn msg;",
+        "func": "delete msg.accion;\ndelete msg.monitor;\nnode.error(`${msg.error.source.name || msg.error.source.type}: ${msg.error.message}`);\nmsg.statusCode = 500;\nmsg.payload = { mensaje: 'No se pudo completar la operación. Intenta de nuevo.' };\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -1477,6 +1494,496 @@
         "x": 600,
         "y": 620,
         "wires": []
+    },
+    {
+        "id": "1a7e0d15c0de0101",
+        "type": "postgresql",
+        "z": "1a7e0d15c0de0001",
+        "name": "Guardar R0 y notas",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 800,
+        "y": 500,
+        "wires": [
+            [
+                "1a7e0d15c0de0102"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0102",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Comprobar R0 y notas",
+        "func": "if (msg.payload.length === 0) {\n    msg.statusCode = 404;\n    msg.payload = { mensaje: 'Monitor no encontrado.' };\n    return [null, msg];\n}\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1010,
+        "y": 500,
+        "wires": [
+            [
+                "1a7e0d15c0de002f"
+            ],
+            [
+                "1a7e0d15c0de0031"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0110",
+        "type": "http in",
+        "z": "1a7e0d15c0de0001",
+        "name": "",
+        "url": "/api/admin/dispositivos/:id",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 720,
+        "wires": [
+            [
+                "1a7e0d15c0de0111"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0111",
+        "type": "link call",
+        "z": "1a7e0d15c0de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 410,
+        "y": 720,
+        "wires": [
+            [
+                "1a7e0d15c0de0112"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0112",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Validar monitor",
+        "func": "if (!msg.sesion) return [null, msg];\nif (msg.sesion.rol !== 'admin') {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return [null, msg];\n}\n\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) && Number(texto) <= 2147483647 ? Number(texto) : null;\nif (id === null) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Monitor no válido.' };\n    return [null, msg];\n}\nmsg.filtro = { id };\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 720,
+        "wires": [
+            [
+                "1a7e0d15c0de0113"
+            ],
+            [
+                "1a7e0d15c0de0117"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0113",
+        "type": "link call",
+        "z": "1a7e0d15c0de0001",
+        "name": "consultar monitores",
+        "links": [
+            "1a7e0d15c0de0002"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 800,
+        "y": 720,
+        "wires": [
+            [
+                "1a7e0d15c0de0114"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0114",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Buscar datos técnicos",
+        "func": "const monitor = msg.payload[0];\nif (!monitor) {\n    msg.statusCode = 404;\n    msg.payload = { mensaje: 'Monitor no encontrado.' };\n    return [null, msg];\n}\nmsg.monitor = monitor;\nmsg.query = `SELECT d.ultimo_rssi, d.fw, l.latencia_ms, l.ts_dispositivo IS NOT NULL AS ntp,\n  l.temperatura, l.humedad, l.presion, l.mq135_v,\n  COALESCE((\n    SELECT json_agg(json_build_object('fecha', e.fecha, 'texto', e.texto) ORDER BY e.fecha DESC, e.id DESC)\n    FROM eventos_dispositivo e WHERE e.dispositivo_id = d.id\n  ), '[]'::json) AS eventos\nFROM dispositivos d\nLEFT JOIN LATERAL (\n  SELECT latencia_ms, ts_dispositivo, temperatura, humedad, presion, mq135_v\n  FROM lecturas WHERE dispositivo_id = d.id ORDER BY fecha_hora DESC LIMIT 1\n) l ON true\nWHERE d.id = $1`;\nmsg.params = [monitor.id];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1010,
+        "y": 720,
+        "wires": [
+            [
+                "1a7e0d15c0de0115"
+            ],
+            [
+                "1a7e0d15c0de0117"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0115",
+        "type": "postgresql",
+        "z": "1a7e0d15c0de0001",
+        "name": "Datos técnicos",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1210,
+        "y": 720,
+        "wires": [
+            [
+                "1a7e0d15c0de0116"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0116",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Responder ficha",
+        "func": "const m = msg.monitor;\nconst t = msg.payload[0];\nconst enLinea = m.conexion === 'en_linea';\nconst sensor = (nombre, rol, valor) => ({\n    nombre,\n    rol,\n    estado: !enLinea || valor === null ? 'sin_datos' : 'responde',\n});\nconst mq135 = sensor('MQ-135', 'Calidad del aire', t.mq135_v);\nif (mq135.estado === 'responde' && m.r0 === null) mq135.estado = 'sin_calibrar';\nmsg.statusCode = 200;\nmsg.headers = { 'Cache-Control': 'no-store' };\nmsg.payload = {\n    ...m,\n    tecnico: {\n        latenciaMs: enLinea ? t.latencia_ms : null,\n        ntp: enLinea && t.ntp,\n        rssi: enLinea ? t.ultimo_rssi : null,\n        fw: t.fw,\n    },\n    sensores: [\n        sensor('DS18B20', 'Temperatura', t.temperatura),\n        sensor('DHT11', 'Humedad', t.humedad),\n        sensor('BMP280', 'Presión', t.presion),\n        mq135,\n    ],\n    eventos: t.eventos.map((e) => ({ fecha: new Date(e.fecha).toISOString(), texto: e.texto })),\n};\ndelete msg.monitor;\ndelete msg.query;\ndelete msg.params;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1410,
+        "y": 720,
+        "wires": [
+            [
+                "1a7e0d15c0de0117"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0117",
+        "type": "http response",
+        "z": "1a7e0d15c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1600,
+        "y": 720,
+        "wires": []
+    },
+    {
+        "id": "1a7e0d15c0de0120",
+        "type": "http in",
+        "z": "1a7e0d15c0de0001",
+        "name": "",
+        "url": "/api/admin/dispositivos/:id/liberar",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 220,
+        "y": 820,
+        "wires": [
+            [
+                "1a7e0d15c0de0121"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0121",
+        "type": "link call",
+        "z": "1a7e0d15c0de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 470,
+        "y": 820,
+        "wires": [
+            [
+                "1a7e0d15c0de0122"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0122",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Preparar liberación",
+        "func": "if (!msg.sesion) return [null, msg];\nif (msg.sesion.rol !== 'admin') {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return [null, msg];\n}\n\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) && Number(texto) <= 2147483647 ? Number(texto) : null;\nif (id === null) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Monitor no válido.' };\n    return [null, msg];\n}\nconst LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';\nconst parte = () => Array.from({ length: 4 }, () => LETRAS[crypto.randomInt(LETRAS.length)]).join('');\nconst codigo = `${parte()}-${parte()}`;\nmsg.filtro = { id };\nmsg.accion = { mensaje: 'Solo se puede liberar un monitor desactivado.' };\nmsg.query = `WITH actual AS (\n  SELECT id, estado FROM dispositivos WHERE id = $1 FOR UPDATE\n), cambio AS (\n  UPDATE dispositivos d\n  SET estado = 'disponible', cliente_id = NULL, ubicacion_id = NULL, nombre = NULL,\n      asignado_en = NULL, asignado_por = NULL, codigo = $5\n  FROM actual\n  WHERE d.id = actual.id AND actual.estado = ANY ($2::text[])\n  RETURNING d.id\n), eventos AS (\n  INSERT INTO eventos_dispositivo (dispositivo_id, texto, usuario_id)\n  SELECT id, $3, $4 FROM cambio\n)\nSELECT actual.estado, cambio.id IS NOT NULL AS cambiado FROM actual LEFT JOIN cambio ON true`;\nmsg.params = [id, ['desactivado'], `Liberado. Código nuevo ${codigo}`, msg.sesion.sub, codigo];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "crypto",
+                "module": "crypto"
+            }
+        ],
+        "x": 670,
+        "y": 820,
+        "wires": [
+            [
+                "1a7e0d15c0de0123"
+            ],
+            [
+                "1a7e0d15c0de0126"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0123",
+        "type": "postgresql",
+        "z": "1a7e0d15c0de0001",
+        "name": "Guardar liberación",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 880,
+        "y": 820,
+        "wires": [
+            [
+                "1a7e0d15c0de0124"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0124",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Comprobar estado",
+        "func": "const fila = msg.payload[0];\nconst mensaje = msg.accion.mensaje;\ndelete msg.accion;\nif (!fila) {\n    msg.statusCode = 404;\n    msg.payload = { mensaje: 'Monitor no encontrado.' };\n    return [null, msg];\n}\nif (!fila.cambiado) {\n    msg.statusCode = 409;\n    msg.payload = { mensaje };\n    return [null, msg];\n}\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1080,
+        "y": 820,
+        "wires": [
+            [
+                "1a7e0d15c0de0125"
+            ],
+            [
+                "1a7e0d15c0de0126"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0125",
+        "type": "link call",
+        "z": "1a7e0d15c0de0001",
+        "name": "consultar monitores",
+        "links": [
+            "1a7e0d15c0de0002"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 1280,
+        "y": 820,
+        "wires": [
+            [
+                "1a7e0d15c0de0127"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0126",
+        "type": "http response",
+        "z": "1a7e0d15c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1700,
+        "y": 820,
+        "wires": []
+    },
+    {
+        "id": "1a7e0d15c0de0127",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Responder monitor",
+        "func": "msg.statusCode = 200;\nmsg.payload = msg.payload[0];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1490,
+        "y": 820,
+        "wires": [
+            [
+                "1a7e0d15c0de0126"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0130",
+        "type": "http in",
+        "z": "1a7e0d15c0de0001",
+        "name": "",
+        "url": "/api/admin/dispositivos/:id/retirar",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 220,
+        "y": 920,
+        "wires": [
+            [
+                "1a7e0d15c0de0131"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0131",
+        "type": "link call",
+        "z": "1a7e0d15c0de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 470,
+        "y": 920,
+        "wires": [
+            [
+                "1a7e0d15c0de0132"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0132",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Preparar retiro",
+        "func": "if (!msg.sesion) return [null, msg];\nif (msg.sesion.rol !== 'admin') {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return [null, msg];\n}\n\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) && Number(texto) <= 2147483647 ? Number(texto) : null;\nif (id === null) {\n    msg.statusCode = 400;\n    msg.payload = { mensaje: 'Monitor no válido.' };\n    return [null, msg];\n}\nmsg.filtro = { id };\nmsg.accion = { mensaje: 'Solo se puede retirar un monitor que no esté en uso ni retirado.' };\nmsg.query = `WITH actual AS (\n  SELECT id, estado FROM dispositivos WHERE id = $1 FOR UPDATE\n), cambio AS (\n  UPDATE dispositivos d\n  SET estado = 'retirado', cliente_id = NULL, ubicacion_id = NULL, nombre = NULL\n  FROM actual\n  WHERE d.id = actual.id AND actual.estado = ANY ($2::text[])\n  RETURNING d.id\n), eventos AS (\n  INSERT INTO eventos_dispositivo (dispositivo_id, texto, usuario_id)\n  SELECT id, $3, $4 FROM cambio\n)\nSELECT actual.estado, cambio.id IS NOT NULL AS cambiado FROM actual LEFT JOIN cambio ON true`;\nmsg.params = [id, ['disponible', 'reservado', 'desactivado'], 'Retirado. Código anulado', msg.sesion.sub];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 670,
+        "y": 920,
+        "wires": [
+            [
+                "1a7e0d15c0de0133"
+            ],
+            [
+                "1a7e0d15c0de0136"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0133",
+        "type": "postgresql",
+        "z": "1a7e0d15c0de0001",
+        "name": "Guardar retiro",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 880,
+        "y": 920,
+        "wires": [
+            [
+                "1a7e0d15c0de0134"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0134",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Comprobar estado",
+        "func": "const fila = msg.payload[0];\nconst mensaje = msg.accion.mensaje;\ndelete msg.accion;\nif (!fila) {\n    msg.statusCode = 404;\n    msg.payload = { mensaje: 'Monitor no encontrado.' };\n    return [null, msg];\n}\nif (!fila.cambiado) {\n    msg.statusCode = 409;\n    msg.payload = { mensaje };\n    return [null, msg];\n}\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1080,
+        "y": 920,
+        "wires": [
+            [
+                "1a7e0d15c0de0135"
+            ],
+            [
+                "1a7e0d15c0de0136"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0135",
+        "type": "link call",
+        "z": "1a7e0d15c0de0001",
+        "name": "consultar monitores",
+        "links": [
+            "1a7e0d15c0de0002"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 1280,
+        "y": 920,
+        "wires": [
+            [
+                "1a7e0d15c0de0137"
+            ]
+        ]
+    },
+    {
+        "id": "1a7e0d15c0de0136",
+        "type": "http response",
+        "z": "1a7e0d15c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1700,
+        "y": 920,
+        "wires": []
+    },
+    {
+        "id": "1a7e0d15c0de0137",
+        "type": "function",
+        "z": "1a7e0d15c0de0001",
+        "name": "Responder monitor",
+        "func": "msg.statusCode = 200;\nmsg.payload = msg.payload[0];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1490,
+        "y": 920,
+        "wires": [
+            [
+                "1a7e0d15c0de0136"
+            ]
+        ]
     },
     {
         "id": "a1e7a5c0de000001",

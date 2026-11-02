@@ -265,6 +265,28 @@ Reserva el monitor para un cliente (`clienteId`) o quita la reserva (`null`, vue
 | Monitor `en_uso`, `desactivado` o `retirado` | 409 `Solo se puede reservar un monitor disponible o reservado.` |
 | Cliente inexistente o suspendido | 404 o 409, como en el registro |
 
+### Ficha del monitor (#70)
+
+Mismas reglas de sesión que el resto del inventario (401 sin sesión, 403 si no es admin, 400 `Monitor no válido.` si el id no es un entero positivo, 404 `Monitor no encontrado.`). Todo cambio se anota en `eventos_dispositivo` con el admin que lo hizo.
+
+```text
+[GET /api/admin/dispositivos/:id] → [verificar sesión] → [Validar monitor] → [consultar monitores]
+  → [Buscar datos técnicos] → [Datos técnicos] → [Responder ficha]
+[PATCH …/:id] → [verificar sesión] → [Validar cambios] ─┬→ reserva (igual que antes)
+                                                        └→ [Guardar R0 y notas] → [Comprobar R0 y notas] → [consultar monitores]
+[POST …/:id/liberar] → [verificar sesión] → [Preparar liberación] → [Guardar liberación] → [Comprobar estado] → [consultar monitores]
+[POST …/:id/retirar] → [verificar sesión] → [Preparar retiro] → [Guardar retiro] → [Comprobar estado] → [consultar monitores]
+```
+
+| Ruta | Qué hace |
+|---|---|
+| `GET /api/admin/dispositivos/:id` | El monitor (forma del inventario) con `tecnico` (`latenciaMs`, `ntp`, `rssi` de la última lectura si está en línea, y `fw`), `sensores` (DS18B20, DHT11, BMP280 y MQ-135: `responde`, `sin_datos` si no está en línea o el valor llegó nulo, y `sin_calibrar` para el MQ-135 sin R0) y `eventos` (`{ fecha, texto }`, del más nuevo al más viejo) |
+| `PATCH /api/admin/dispositivos/:id` con `{ r0?, notas? }` | `r0` en kΩ: número mayor que 0 y menor que 100000, redondeado a 3 decimales; si no, 400 `R0 debe ser un número mayor que 0.`. `notas`: texto de hasta 2000 caracteres. Anota «R0 del MQ-135 cargado: … kΩ» o «Notas actualizadas». No se mezcla con `clienteId` en el mismo pedido (400) |
+| `POST /api/admin/dispositivos/:id/liberar` | Solo si está `desactivado`: vuelve a `disponible` sin cliente, ubicación ni nombre, con un código nuevo. Anota «Liberado. Código nuevo …». Las lecturas se conservan |
+| `POST /api/admin/dispositivos/:id/retirar` | Desde `disponible`, `reservado` o `desactivado`: pasa a `retirado` sin cliente ni ubicación. Es definitivo: no se puede reservar, liberar ni activar. Anota «Retirado. Código anulado» |
+
+Liberar un monitor que no está desactivado responde 409 `Solo se puede liberar un monitor desactivado.`; retirar uno en uso o ya retirado responde 409 `Solo se puede retirar un monitor que no esté en uso ni retirado.`.
+
 ## Flujo «Clientes» (#68)
 
 Solo para el admin (`/api/admin/...`): sin sesión → 401, con sesión de cliente → 403. Las respuestas llevan `Cache-Control: no-store`.
