@@ -87,6 +87,16 @@ python -B -m unittest discover -s pruebas -p test_historial.py -v
 
 Verifica la sesión y el 403 con la ubicación de otro cliente, el orden y la forma de las filas, los filtros de fechas y nodo, la paginación, los 400, los promedios por minuto, hora y día, y que 7 días agrupados por hora (6 nodos, 60 480 minutos) respondan en menos de 1 s.
 
+## Serie de las gráficas (#73)
+
+`test_serie.py` prueba `GET /api/dispositivos/:id/serie` contra PostgreSQL 17, en el mismo entorno aislado de `test_ubicaciones.py`.
+
+```bash
+python -B -m unittest discover -s pruebas -p test_serie.py -v
+```
+
+Verifica la sesión y el 403 con un nodo de otro cliente o sin ubicación, que cada periodo use su fuente (crudas en 1 h, por minuto en 24 h, promedio ponderado por hora en 7 días), que solo cuenten las lecturas de la ubicación actual del nodo, el rango del umbral activo y los 400.
+
 ## Carga MQTT
 
 `carga.py` simula monitores publicando en `telemetria/<ID>/lecturas` con MQTT 3.1.1 y QoS 0. Usa un cliente oyente adicional para medir el recorrido publicador → broker → oyente. No mide persistencia en PostgreSQL ni actualización del navegador.
