@@ -9,6 +9,7 @@ import Icono from '../../componentes/ui/Icono';
 import useApi from '../../hooks/useApi';
 import { normalizarCodigo } from '../../utils/validacion';
 import estilos from './Nodos.module.css';
+import { REFRESCOS, guardarRefresco, leerRefresco } from '../../utils/refresco';
 
 const SENSORES = [
   ['temperatura', 'Temperatura'],
@@ -16,31 +17,6 @@ const SENSORES = [
   ['presion', 'Presión'],
   ['aire', 'Calidad del aire'],
 ];
-
-const REFRESCOS = [
-  ['5', '5 segundos'],
-  ['10', '10 segundos'],
-  ['30', '30 segundos'],
-  ['60', '1 minuto'],
-];
-
-const CLAVE_REFRESCO = 'telemon.refresco';
-
-function leerRefresco() {
-  try {
-    return localStorage.getItem(CLAVE_REFRESCO) ?? '5';
-  } catch {
-    return '5';
-  }
-}
-
-function guardarRefresco(valor) {
-  try {
-    localStorage.setItem(CLAVE_REFRESCO, valor);
-  } catch {
-    return;
-  }
-}
 
 const sinPresion = (n) => n.presion === null;
 const sinCalibrar = (n) => n.rsR0 == null || n.nivelAire === 'sin_calibrar';
@@ -422,9 +398,9 @@ export default function Nodos() {
               guardarRefresco(e.target.value);
             }}
           >
-            {REFRESCOS.map(([valor, texto]) => (
-              <option key={valor} value={valor}>
-                {texto}
+            {REFRESCOS.map((r) => (
+              <option key={r.valor} value={r.valor}>
+                {r.largo}
               </option>
             ))}
           </select>
