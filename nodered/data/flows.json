@@ -2028,7 +2028,7 @@
         "type": "function",
         "z": "7f3b2c1a9d4e5f01",
         "name": "Evaluar alertas",
-        "func": "const { umbrales, abiertas, nodo } = msg.payload[0];\nconst { dispositivoId, ubicacionId } = msg.alerta;\nconst l = msg.lectura;\nconst NOMBRES = { temperatura: 'Temperatura', humedad: 'Humedad', presion: 'Presión', calidad_aire: 'Calidad del aire' };\nconst UNIDADES = { temperatura: ' °C', humedad: ' %', presion: ' hPa', calidad_aire: ' Rs/R0' };\nconst valores = { temperatura: l.temperatura, humedad: l.humedad, presion: l.presion, calidad_aire: msg.calculado.rsR0 };\nconst crudos = { temperatura: l.temperatura, humedad: l.humedad, presion: l.presion, calidad_aire: l.mq135_v };\nconst contadores = flow.get('contadoresAlertas') ?? {};\nconst acciones = [];\nconst COLUMNAS = 'id, dispositivo_id, ubicacion_id, tipo, variable, mensaje, peor_valor, abierta_en, cerrada_en';\nconst accion = (nombre, variable, query, params) => ({\n    accion: nombre,\n    aviso: { nodo, unidad: UNIDADES[variable] },\n    query: `${query} RETURNING ${COLUMNAS}`,\n    params,\n});\nconst abrir = (tipo, variable, mensaje, valor) =>\n    accion('abierta', variable, `INSERT INTO alertas (dispositivo_id, ubicacion_id, tipo, variable, mensaje, valor_inicio, peor_valor)\nVALUES ($1, $2, $3, $4, $5, $6, $6)\nON CONFLICT DO NOTHING`, [dispositivoId, ubicacionId, tipo, variable, mensaje, valor]);\nconst cerrar = (alerta, motivo) =>\n    accion('cerrada', alerta.variable, 'UPDATE alertas SET cerrada_en = now(), motivo_cierre = $2 WHERE id = $1 AND cerrada_en IS NULL',\n        [alerta.id, motivo]);\nconst empeorar = (alerta, valor) =>\n    accion('actualizada', alerta.variable, 'UPDATE alertas SET peor_valor = $2 WHERE id = $1 AND cerrada_en IS NULL',\n        [alerta.id, valor]);\nconst buscar = (tipo, variable) => abiertas.find((x) => x.tipo === tipo && x.variable === variable);\nconst distancia = (valor, u) =>\n    Math.max(u.min === null ? 0 : u.min - valor, u.max === null ? 0 : valor - u.max, 0);\nconst numero = (valor) => String(Number(valor));\nfor (const variable of Object.keys(NOMBRES)) {\n    const clave = `${dispositivoId}:${variable}`;\n    const c = (contadores[clave] ??= { fuera: 0, dentro: 0, nulos: 0 });\n    const umbral = umbrales.find((u) => u.variable === variable);\n    const alerta = buscar('UMBRAL', variable);\n    const valor = valores[variable];\n    if (!umbral) {\n        c.fuera = 0;\n        c.dentro = 0;\n        if (alerta) acciones.push(cerrar(alerta, 'umbral desactivado'));\n    } else if (valor !== null) {\n        const bajo = umbral.min !== null && valor < umbral.min;\n        const alto = umbral.max !== null && valor > umbral.max;\n        if (bajo || alto) {\n            c.fuera += 1;\n            c.dentro = 0;\n            if (alerta) {\n                if (distancia(valor, umbral) > distancia(Number(alerta.peor), umbral)) acciones.push(empeorar(alerta, valor));\n            } else if (c.fuera >= 2) {\n                const mensaje = variable === 'calidad_aire' && bajo\n                    ? `Calidad del aire en nivel ${msg.calculado.nivel}`\n                    : bajo\n                        ? `${NOMBRES[variable]} bajo el mínimo (${numero(umbral.min)}${UNIDADES[variable]})`\n                        : `${NOMBRES[variable]} sobre el máximo (${numero(umbral.max)}${UNIDADES[variable]})`;\n                acciones.push(abrir('UMBRAL', variable, mensaje, valor));\n            }\n        } else {\n            c.dentro += 1;\n            c.fuera = 0;\n            if (alerta && c.dentro >= 2) acciones.push(cerrar(alerta, 'volvió al rango'));\n        }\n    }\n    const sensor = buscar('SENSOR', variable);\n    if (crudos[variable] === null) {\n        const precalentando = variable === 'calidad_aire' && l.uptime !== null && l.uptime < 180;\n        if (!precalentando) {\n            c.nulos += 1;\n            if (!sensor && c.nulos >= 3) acciones.push(abrir('SENSOR', variable, `${NOMBRES[variable]} sin respuesta`, null));\n        }\n    } else {\n        c.nulos = 0;\n        if (sensor) acciones.push(cerrar(sensor, 'el sensor volvió a responder'));\n    }\n}\nflow.set('contadoresAlertas', contadores);\nreturn [acciones];",
+        "func": "const { umbrales, abiertas, nodo } = msg.payload[0];\nconst { dispositivoId, ubicacionId } = msg.alerta;\nconst l = msg.lectura;\nconst NOMBRES = { temperatura: 'Temperatura', humedad: 'Humedad', presion: 'Presión', calidad_aire: 'Calidad del aire' };\nconst UNIDADES = { temperatura: ' °C', humedad: ' %', presion: ' hPa', calidad_aire: ' Rs/R0' };\nconst valores = { temperatura: l.temperatura, humedad: l.humedad, presion: l.presion, calidad_aire: msg.calculado.rsR0 };\nconst crudos = { temperatura: l.temperatura, humedad: l.humedad, presion: l.presion, calidad_aire: l.mq135_v };\nconst contadores = flow.get('contadoresAlertas') ?? {};\nconst acciones = [];\nconst COLUMNAS = 'id, dispositivo_id, ubicacion_id, tipo, variable, mensaje, peor_valor, abierta_en, cerrada_en';\nconst accion = (nombre, variable, query, params) => ({\n    accion: nombre,\n    aviso: { nodo, unidad: UNIDADES[variable] },\n    query: `${query} RETURNING ${COLUMNAS}`,\n    params,\n});\nconst abrir = (tipo, variable, mensaje, valor) =>\n    accion('abierta', variable, `INSERT INTO alertas (dispositivo_id, ubicacion_id, tipo, variable, mensaje, valor_inicio, peor_valor)\nVALUES ($1, $2, $3, $4, $5, $6, $6)\nON CONFLICT DO NOTHING`, [dispositivoId, ubicacionId, tipo, variable, mensaje, valor]);\nconst cerrar = (alerta, motivo) =>\n    accion('cerrada', alerta.variable, 'UPDATE alertas SET cerrada_en = now(), motivo_cierre = $2 WHERE id = $1 AND cerrada_en IS NULL',\n        [alerta.id, motivo]);\nconst empeorar = (alerta, valor) =>\n    accion('actualizada', alerta.variable, 'UPDATE alertas SET peor_valor = $2 WHERE id = $1 AND cerrada_en IS NULL',\n        [alerta.id, valor]);\nconst buscar = (tipo, variable) => abiertas.find((x) => x.tipo === tipo && x.variable === variable);\nconst distancia = (valor, u) =>\n    Math.max(u.min === null ? 0 : u.min - valor, u.max === null ? 0 : valor - u.max, 0);\nconst numero = (valor) => String(Number(valor));\nconst sinConexion = abiertas.find((x) => x.tipo === 'SIN_CONEXION');\nif (sinConexion) {\n    acciones.push(cerrar(sinConexion, 'volvió a conectarse'));\n    for (const variable of Object.keys(NOMBRES)) delete contadores[`${dispositivoId}:${variable}`];\n}\nfor (const variable of Object.keys(NOMBRES)) {\n    const clave = `${dispositivoId}:${variable}`;\n    const c = (contadores[clave] ??= { fuera: 0, dentro: 0, nulos: 0 });\n    const umbral = umbrales.find((u) => u.variable === variable);\n    const alerta = buscar('UMBRAL', variable);\n    const valor = valores[variable];\n    if (!umbral) {\n        c.fuera = 0;\n        c.dentro = 0;\n        if (alerta) acciones.push(cerrar(alerta, 'umbral desactivado'));\n    } else if (valor !== null) {\n        const bajo = umbral.min !== null && valor < umbral.min;\n        const alto = umbral.max !== null && valor > umbral.max;\n        if (bajo || alto) {\n            c.fuera += 1;\n            c.dentro = 0;\n            if (alerta) {\n                if (distancia(valor, umbral) > distancia(Number(alerta.peor), umbral)) acciones.push(empeorar(alerta, valor));\n            } else if (c.fuera >= 2) {\n                const mensaje = variable === 'calidad_aire' && bajo\n                    ? `Calidad del aire en nivel ${msg.calculado.nivel}`\n                    : bajo\n                        ? `${NOMBRES[variable]} bajo el mínimo (${numero(umbral.min)}${UNIDADES[variable]})`\n                        : `${NOMBRES[variable]} sobre el máximo (${numero(umbral.max)}${UNIDADES[variable]})`;\n                acciones.push(abrir('UMBRAL', variable, mensaje, valor));\n            }\n        } else {\n            c.dentro += 1;\n            c.fuera = 0;\n            if (alerta && c.dentro >= 2) acciones.push(cerrar(alerta, 'volvió al rango'));\n        }\n    }\n    const sensor = buscar('SENSOR', variable);\n    if (crudos[variable] === null) {\n        const precalentando = variable === 'calidad_aire' && l.uptime !== null && l.uptime < 180;\n        if (!precalentando) {\n            c.nulos += 1;\n            if (!sensor && c.nulos >= 3) acciones.push(abrir('SENSOR', variable, `${NOMBRES[variable]} sin respuesta`, null));\n        }\n    } else {\n        c.nulos = 0;\n        if (sensor) acciones.push(cerrar(sensor, 'el sensor volvió a responder'));\n    }\n}\nflow.set('contadoresAlertas', contadores);\nreturn [acciones];",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -2093,6 +2093,83 @@
         "x": 1345,
         "y": 200,
         "wires": []
+    },
+    {
+        "id": "a1e7a5c0de000101",
+        "type": "inject",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Cada 30 s",
+        "props": [],
+        "repeat": "30",
+        "crontab": "",
+        "once": true,
+        "onceDelay": "15",
+        "topic": "",
+        "x": 150,
+        "y": 300,
+        "wires": [
+            [
+                "a1e7a5c0de000102"
+            ]
+        ]
+    },
+    {
+        "id": "a1e7a5c0de000102",
+        "type": "function",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Revisar nodos sin conexión",
+        "func": "msg.query = `WITH cerradas AS (\n  UPDATE alertas a\n  SET cerrada_en = now(),\n      motivo_cierre = CASE WHEN d.estado = 'en_uso' AND d.ubicacion_id = a.ubicacion_id\n        THEN 'volvió a conectarse' ELSE 'monitor fuera de uso' END\n  FROM dispositivos d\n  JOIN ubicaciones u ON u.id = d.ubicacion_id\n  WHERE a.tipo = 'SIN_CONEXION' AND a.cerrada_en IS NULL AND d.id = a.dispositivo_id\n    AND (d.estado <> 'en_uso' OR d.ubicacion_id <> a.ubicacion_id\n      OR d.ultima_lectura_en > now() - make_interval(secs => u.espera_sin_conexion_s))\n  RETURNING a.*\n), huerfanas AS (\n  UPDATE alertas a\n  SET cerrada_en = now(), motivo_cierre = 'monitor fuera de uso'\n  FROM dispositivos d\n  WHERE a.tipo = 'SIN_CONEXION' AND a.cerrada_en IS NULL AND d.id = a.dispositivo_id AND d.ubicacion_id IS NULL\n  RETURNING a.*\n), abiertas AS (\n  INSERT INTO alertas (dispositivo_id, ubicacion_id, tipo, variable, mensaje)\n  SELECT d.id, d.ubicacion_id, 'SIN_CONEXION', NULL, 'No envía datos'\n  FROM dispositivos d\n  JOIN ubicaciones u ON u.id = d.ubicacion_id\n  WHERE d.estado = 'en_uso'\n    AND d.ultima_lectura_en <= now() - make_interval(secs => u.espera_sin_conexion_s)\n  ON CONFLICT DO NOTHING\n  RETURNING *\n), cambios AS (\n  SELECT 'cerrada' AS accion, * FROM cerradas\n  UNION ALL SELECT 'cerrada', * FROM huerfanas\n  UNION ALL SELECT 'abierta', * FROM abiertas\n)\nSELECT c.accion, c.id, c.dispositivo_id, c.ubicacion_id, c.tipo, c.variable, c.mensaje, c.peor_valor,\n  c.abierta_en, c.cerrada_en, d.nombre AS nodo\nFROM cambios c\nJOIN dispositivos d ON d.id = c.dispositivo_id\nORDER BY c.dispositivo_id`;\nmsg.params = [];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 380,
+        "y": 300,
+        "wires": [
+            [
+                "a1e7a5c0de000103"
+            ]
+        ]
+    },
+    {
+        "id": "a1e7a5c0de000103",
+        "type": "postgresql",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Abrir y cerrar SIN_CONEXION",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 640,
+        "y": 300,
+        "wires": [
+            [
+                "a1e7a5c0de000104"
+            ]
+        ]
+    },
+    {
+        "id": "a1e7a5c0de000104",
+        "type": "function",
+        "z": "7f3b2c1a9d4e5f01",
+        "name": "Un aviso por alerta",
+        "func": "return [msg.payload.map((fila) => ({\n    accion: fila.accion,\n    aviso: { nodo: fila.nodo, unidad: '' },\n    payload: [fila],\n}))];",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 880,
+        "y": 300,
+        "wires": [
+            [
+                "a1e7a5c0de000005"
+            ]
+        ]
     },
     {
         "id": "a1e7a5c0de000007",
