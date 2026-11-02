@@ -3687,5 +3687,155 @@
         "x": 860,
         "y": 160,
         "wires": []
+    },
+    {
+        "id": "415702a1c0de0001",
+        "type": "tab",
+        "label": "Historial",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "415702a1c0de0002",
+        "type": "http in",
+        "z": "415702a1c0de0001",
+        "name": "",
+        "url": "/api/ubicaciones/:id/lecturas",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 200,
+        "y": 80,
+        "wires": [
+            [
+                "415702a1c0de0003"
+            ]
+        ]
+    },
+    {
+        "id": "415702a1c0de0003",
+        "type": "link call",
+        "z": "415702a1c0de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 430,
+        "y": 80,
+        "wires": [
+            [
+                "415702a1c0de0004"
+            ]
+        ]
+    },
+    {
+        "id": "415702a1c0de0004",
+        "type": "function",
+        "z": "415702a1c0de0001",
+        "name": "Validar filtros",
+        "func": "if (!msg.sesion) return [null, msg];\nmsg.headers = { 'Cache-Control': 'no-store' };\nconst q = msg.req.query ?? {};\nconst negar = (mensaje) => {\n    msg.statusCode = 400;\n    msg.payload = { mensaje };\n    return [null, msg];\n};\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) && Number(texto) <= 2147483647 ? Number(texto) : null;\nif (id === null) return negar('Ubicación no válida.');\nconst fecha = (valor) => (valor === undefined || valor === '' ? undefined : new Date(String(valor)));\nconst hasta = fecha(q.hasta) ?? new Date();\nconst desde = fecha(q.desde) ?? new Date(hasta.getTime() - 86400000);\nif (Number.isNaN(hasta.getTime()) || Number.isNaN(desde.getTime())) return negar('Fecha no válida.');\nif (desde > hasta) return negar('La fecha inicial debe ser anterior a la final.');\nlet nodo = null;\nif (q.nodo !== undefined && q.nodo !== '') {\n    if (!/^[1-9][0-9]{0,9}$/.test(String(q.nodo)) || Number(q.nodo) > 2147483647) return negar('Nodo no válido.');\n    nodo = Number(q.nodo);\n}\nconst agrupar = q.agrupar ?? 'ninguno';\nif (!['ninguno', 'minuto', 'hora', 'dia'].includes(agrupar)) return negar('Agrupación no válida.');\nconst entero = (valor, defecto, max) => {\n    const n = Number.parseInt(String(valor ?? ''), 10);\n    return Number.isFinite(n) && n >= 1 ? Math.min(n, max) : defecto;\n};\nconst pagina = entero(q.pagina, 1, 1000000);\nconst porPagina = entero(q.porPagina, 20, 1000);\nconst filtro = `ubicacion_id = $1 AND ubicacion_id IN (SELECT id FROM ubicaciones WHERE cliente_id = $2)\n    AND ($5::integer IS NULL OR dispositivo_id = $5)`;\nconst promedio = (columna, decimales) =>\n    `round(sum(${columna} * n_lecturas) FILTER (WHERE ${columna} IS NOT NULL)\n      / NULLIF(sum(n_lecturas) FILTER (WHERE ${columna} IS NOT NULL), 0), ${decimales})`;\nlet base;\nif (agrupar === 'ninguno') {\n    base = `SELECT fecha_hora AS fecha, dispositivo_id, temperatura, humedad, presion, rs_r0, nivel_aire,\n    mq135_v IS NOT NULL AS con_mq, id AS orden\n  FROM lecturas\n  WHERE ${filtro} AND fecha_hora >= $3::timestamptz AND fecha_hora <= $4::timestamptz`;\n} else if (agrupar === 'minuto') {\n    base = `SELECT date_trunc('minute', fecha_hora) AS fecha, dispositivo_id,\n    round(avg(temperatura), 2) AS temperatura, round(avg(humedad), 2) AS humedad,\n    round(avg(presion), 2) AS presion, round(avg(rs_r0), 3) AS rs_r0, NULL::text AS nivel_aire,\n    bool_or(mq135_v IS NOT NULL) AS con_mq, 0::bigint AS orden\n  FROM lecturas\n  WHERE ${filtro} AND fecha_hora >= $3::timestamptz AND fecha_hora <= $4::timestamptz\n  GROUP BY 1, 2`;\n} else {\n    const unidad = agrupar === 'hora' ? 'hour' : 'day';\n    base = `SELECT date_trunc('${unidad}', minuto AT TIME ZONE 'America/La_Paz') AT TIME ZONE 'America/La_Paz' AS fecha,\n    dispositivo_id, ${promedio('temp_avg', 2)} AS temperatura, ${promedio('hum_avg', 2)} AS humedad,\n    ${promedio('pres_avg', 2)} AS presion, ${promedio('rs_r0_avg', 3)} AS rs_r0, NULL::text AS nivel_aire,\n    NULL::boolean AS con_mq, 0::bigint AS orden\n  FROM lecturas_minuto\n  WHERE ${filtro} AND minuto >= $3::timestamptz AND minuto <= $4::timestamptz\n  GROUP BY 1, 2`;\n}\nmsg.historial = { pagina, porPagina, agrupado: agrupar !== 'ninguno' };\nmsg.query = `WITH base AS (\n  ${base}\n)\nSELECT (SELECT count(*) FROM ubicaciones WHERE id = $1 AND cliente_id = $2)::int AS propia,\n  (SELECT count(*) FROM base)::int AS total,\n  COALESCE((\n    SELECT json_agg(p ORDER BY p.fecha DESC, p.dispositivo_id, p.orden DESC)\n    FROM (\n      SELECT b.*, d.nombre AS nodo FROM base b JOIN dispositivos d ON d.id = b.dispositivo_id\n      ORDER BY b.fecha DESC, b.dispositivo_id, b.orden DESC\n      LIMIT $6 OFFSET $7\n    ) p\n  ), '[]'::json) AS filas`;\nmsg.params = [id, msg.sesion.cliente ?? null, desde.toISOString(), hasta.toISOString(), nodo, porPagina,\n    (pagina - 1) * porPagina];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 80,
+        "wires": [
+            [
+                "415702a1c0de0005"
+            ],
+            [
+                "415702a1c0de0007"
+            ]
+        ]
+    },
+    {
+        "id": "415702a1c0de0005",
+        "type": "postgresql",
+        "z": "415702a1c0de0001",
+        "name": "Lecturas de la ubicación",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 840,
+        "y": 80,
+        "wires": [
+            [
+                "415702a1c0de0006"
+            ]
+        ]
+    },
+    {
+        "id": "415702a1c0de0006",
+        "type": "function",
+        "z": "415702a1c0de0001",
+        "name": "Responder historial",
+        "func": "const { pagina, porPagina, agrupado } = msg.historial;\ndelete msg.historial;\nconst r = msg.payload[0];\nif (!r.propia) {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return msg;\n}\nconst numero = (valor) => (valor === null ? null : Number(valor));\nconst nivel = (f) => {\n    if (f.nivel_aire) return f.nivel_aire;\n    if (f.rs_r0 !== null && agrupado) {\n        const v = Number(f.rs_r0);\n        return v >= 0.8 ? 'bueno' : v >= 0.5 ? 'moderado' : 'malo';\n    }\n    if (f.con_mq === false) return null;\n    return 'sin_calibrar';\n};\nmsg.statusCode = 200;\nmsg.payload = {\n    total: r.total,\n    pagina,\n    porPagina,\n    filas: r.filas.map((f) => ({\n        fecha: new Date(f.fecha).toISOString(),\n        dispositivoId: f.dispositivo_id,\n        nodo: f.nodo,\n        temperatura: numero(f.temperatura),\n        humedad: numero(f.humedad),\n        presion: numero(f.presion),\n        rsR0: numero(f.rs_r0),\n        nivelAire: nivel(f),\n    })),\n};\ndelete msg.query;\ndelete msg.params;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1060,
+        "y": 80,
+        "wires": [
+            [
+                "415702a1c0de0007"
+            ]
+        ]
+    },
+    {
+        "id": "415702a1c0de0007",
+        "type": "http response",
+        "z": "415702a1c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1250,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "415702a1c0de0008",
+        "type": "catch",
+        "z": "415702a1c0de0001",
+        "name": "Errores del historial",
+        "scope": null,
+        "uncaught": false,
+        "x": 180,
+        "y": 160,
+        "wires": [
+            [
+                "415702a1c0de0009"
+            ]
+        ]
+    },
+    {
+        "id": "415702a1c0de0009",
+        "type": "function",
+        "z": "415702a1c0de0001",
+        "name": "Responder error",
+        "func": "delete msg.historial;\nnode.error(`Historial: ${msg.error?.source?.name || 'API'}: ${msg.error?.message || 'Error inesperado'}`);\nmsg.statusCode = 500;\nmsg.headers = { 'Cache-Control': 'no-store' };\nmsg.payload = { mensaje: 'No se pudo consultar el historial. Intenta de nuevo.' };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 160,
+        "wires": [
+            [
+                "415702a1c0de0007"
+            ]
+        ]
     }
 ]

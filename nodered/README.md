@@ -439,6 +439,26 @@ Al llegar una lectura, «Evaluar alertas» cierra la `SIN_CONEXION` abierta con 
 
 Cada apertura o cierre sale por `/ws/lecturas` con la misma forma que las demás alertas (`tipo: "alerta"`, `accion: "abierta"` o `"cerrada"`).
 
+## Flujo «Historial» (#71)
+
+```text
+[GET /api/ubicaciones/:id/lecturas] → [link call «verificar sesión»] → [Validar filtros] → [Lecturas de la ubicación] → [Responder historial]
+```
+
+`GET /api/ubicaciones/:id/lecturas?desde&hasta&nodo&agrupar&pagina&porPagina` responde `{ total, pagina, porPagina, filas }` con la forma de `frontend/src/api/demo/historial.js`. Cada fila es `{ fecha, dispositivoId, nodo, temperatura, humedad, presion, rsR0, nivelAire }`, de la más nueva a la más vieja (el orden que usa la pantalla Historial). Solo el cliente dueño de la ubicación la ve; si no es suya, 403.
+
+| Parámetro | Valor |
+|---|---|
+| `desde`, `hasta` | Fechas ISO. Por defecto, las últimas 24 h |
+| `nodo` | Id del dispositivo; vacío = todos |
+| `agrupar` | `ninguno` y `minuto` usan `lecturas` (crudas o promedio por minuto); `hora` y `dia` usan `lecturas_minuto` con `date_trunc` en hora de Bolivia, promediando con el peso de `n_lecturas` |
+| `pagina`, `porPagina` | Desde 1; `porPagina` por defecto 20 y como máximo 1000 |
+
+- Las lecturas cuentan en la ubicación donde se tomaron, aunque el nodo se haya movido después.
+- Con datos agrupados, `nivelAire` se calcula del promedio de Rs/R0 (bueno ≥ 0,8; moderado ≥ 0,5; malo). Sin Rs/R0 es `sin_calibrar`, salvo que el MQ-135 no haya enviado nada (`null`).
+- Errores 400: `Ubicación no válida.`, `Fecha no válida.`, `La fecha inicial debe ser anterior a la final.`, `Nodo no válido.` y `Agrupación no válida.`.
+- `database/03_agregacion.sql` agrega el índice `(ubicacion_id, minuto)` de `lecturas_minuto` para que 7 días por hora respondan en menos de 1 s.
+
 ## Flujo «Base de datos» (#45)
 
 ```text
