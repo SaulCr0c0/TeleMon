@@ -1,0 +1,10 @@
+**
+!frontend/package.json
+!frontend/package-lock.json
+!frontend/index.html
+!frontend/vite.config.js
+!frontend/public/**
+!frontend/src/**
+!nginx/default.conf
+frontend/src/**/*.test.js
+frontend/src/**/*.test.jsx
