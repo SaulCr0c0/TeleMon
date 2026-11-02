@@ -7,11 +7,13 @@ import EncabezadoPagina from '../../componentes/layout/EncabezadoPagina';
 import Aviso from '../../componentes/ui/Aviso';
 import Boton from '../../componentes/ui/Boton';
 import Estado from '../../componentes/ui/Estado';
+import Segmentado from '../../componentes/ui/Segmentado';
 import Tarjeta from '../../componentes/ui/Tarjeta';
 import tabla from '../../componentes/ui/Tabla.module.css';
 import useApi from '../../hooks/useApi';
 import useTiempoReal from '../../hooks/useTiempoReal';
 import { NIVELES_AIRE, haceCuanto, numero } from '../../utils/formato';
+import { REFRESCOS, guardarRefresco, leerRefresco } from '../../utils/refresco';
 import estilos from './Panel.module.css';
 
 const VARIABLES = [
@@ -211,7 +213,10 @@ function PanelUbicacion({ ubicacionId, nombreUbicacion }) {
   const [recientes, setRecientes] = useState({});
   const [seleccion, setSeleccion] = useState(null);
   const [ahora, setAhora] = useState(() => Date.now());
+  const [refresco, setRefresco] = useState(leerRefresco);
   const filasActuales = useRef(null);
+  const pendientes = useRef([]);
+  const procesarRef = useRef(null);
   const huboConexion = useRef(false);
   filasActuales.current = filas;
   const { datos: iniciales, recargar: recargarUltimas } = ultimas;
@@ -281,13 +286,7 @@ function PanelUbicacion({ ubicacionId, nombreUbicacion }) {
       });
   };
 
-  const { conectado } = useTiempoReal(ubicacionId, (mensaje) => {
-    if (mensaje.ubicacionId != null && String(mensaje.ubicacionId) !== String(ubicacionId)) return;
-    if (mensaje.tipo === 'alerta') {
-      recargarAlertas();
-      return;
-    }
-    if (mensaje.tipo !== 'lectura') return;
+  const procesarLectura = (mensaje) => {
     if (mensaje.demo) {
       if (MODO_DEMO) moverDemo(mensaje.fecha);
       return;
@@ -300,7 +299,38 @@ function PanelUbicacion({ ubicacionId, nombreUbicacion }) {
       return;
     }
     aplicarLectura(mensaje);
+  };
+  procesarRef.current = procesarLectura;
+
+  const { conectado } = useTiempoReal(ubicacionId, (mensaje) => {
+    if (mensaje.ubicacionId != null && String(mensaje.ubicacionId) !== String(ubicacionId)) return;
+    if (mensaje.tipo === 'alerta') {
+      recargarAlertas();
+      return;
+    }
+    if (mensaje.tipo !== 'lectura') return;
+    if (refresco === 'vivo') procesarLectura(mensaje);
+    else pendientes.current.push(mensaje);
   });
+
+  useEffect(() => {
+    const repintar = () => {
+      const lista = pendientes.current;
+      pendientes.current = [];
+      lista.forEach((mensaje) => procesarRef.current(mensaje));
+    };
+    if (refresco === 'vivo') {
+      repintar();
+      return undefined;
+    }
+    const temporizador = setInterval(repintar, Number(refresco) * 1000);
+    return () => clearInterval(temporizador);
+  }, [refresco]);
+
+  const cambiarRefresco = (valor) => {
+    setRefresco(valor);
+    guardarRefresco(valor);
+  };
 
   useEffect(() => {
     if (!conectado) return;
@@ -327,10 +357,16 @@ function PanelUbicacion({ ubicacionId, nombreUbicacion }) {
         titulo="Panel"
         subtitulo="Una fila por nodo, con lo último que midió cada uno."
       >
+        <Segmentado
+          etiqueta="Actualizar el panel"
+          valor={refresco}
+          alCambiar={cambiarRefresco}
+          opciones={REFRESCOS}
+        />
         {conectado ? (
           <span className={estilos.enVivo}>
             <span className={estilos.punto} aria-hidden="true" />
-            En vivo
+            {refresco === 'vivo' ? 'En vivo' : `Cada ${refresco} s`}
             {Number.isFinite(ultimaLectura) && ` · ${haceCuanto(ultimaLectura, ahora)}`}
           </span>
         ) : (

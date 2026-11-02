@@ -1,4 +1,4 @@
-import { act, screen, within } from '@testing-library/react';
+import { act, fireEvent, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ErrorApi, api } from '../../api/cliente';
@@ -180,6 +180,57 @@ describe('Panel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar los nodos.');
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('acumula las lecturas y las pinta con la frecuencia elegida', async () => {
+    await cargar();
+    const grupo = within(screen.getByRole('group', { name: 'Actualizar el panel' }));
+    expect(grupo.getByRole('button', { name: 'En vivo' })).toHaveAttribute('aria-pressed', 'true');
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      fireEvent.click(grupo.getByRole('button', { name: '10 s' }));
+      expect(localStorage.getItem('telemon.refresco')).toBe('10');
+      expect(screen.getByText(/^Cada 10 s · hace/)).toBeInTheDocument();
+      const lectura = {
+        tipo: 'lectura',
+        ubicacionId: 1,
+        dispositivoId: 12,
+        fecha: new Date().toISOString(),
+        temperatura: 25.1,
+        humedad: 44,
+        presion: 748.6,
+        rsR0: 0.93,
+        nivelAire: 'bueno',
+      };
+      enviar(lectura);
+      act(() => vi.advanceTimersByTime(9000));
+      expect(within(fila('Aula 3')).queryByText('25.1 °C')).not.toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(1000));
+      expect(within(fila('Aula 3')).getByText('25.1 °C')).toBeInTheDocument();
+
+      enviar({ ...lectura, fecha: new Date(Date.now() + 1000).toISOString(), temperatura: 26.4 });
+      expect(within(fila('Aula 3')).queryByText('26.4 °C')).not.toBeInTheDocument();
+      fireEvent.click(grupo.getByRole('button', { name: 'En vivo' }));
+      expect(within(fila('Aula 3')).getByText('26.4 °C')).toBeInTheDocument();
+      enviar({ ...lectura, fecha: new Date(Date.now() + 2000).toISOString(), temperatura: 27 });
+      expect(within(fila('Aula 3')).getByText('27.0 °C')).toBeInTheDocument();
+      expect(localStorage.getItem('telemon.refresco')).toBe('vivo');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('recuerda la frecuencia elegida al volver', async () => {
+    localStorage.setItem('telemon.refresco', '30');
+    await cargar();
+    expect(screen.getByRole('button', { name: '30 s' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText(/^Cada 30 s · hace/)).toBeInTheDocument();
+  });
+
+  it('usa en vivo si la frecuencia guardada no es válida', async () => {
+    localStorage.setItem('telemon.refresco', '5');
+    await cargar();
+    expect(screen.getByRole('button', { name: 'En vivo' })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('indica cuando el canal en vivo está caído', async () => {

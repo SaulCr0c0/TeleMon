@@ -101,7 +101,7 @@ Cuentas del modo demo:
 | `/bienvenida` | `paginas/acceso/Bienvenida.jsx` | 1b · Bienvenida | #40 |
 | `/crear-clave` | `paginas/acceso/CrearClave.jsx` | 1c · Crear contraseña | #40 |
 | `/ubicaciones` | `paginas/cliente/Ubicaciones.jsx` | 2 · Ubicaciones | #42 |
-| `/ubicaciones/:id/panel` | `paginas/cliente/Panel.jsx` | 3 · Panel | #55 |
+| `/ubicaciones/:id/panel` | `paginas/cliente/Panel.jsx` | 3 · Panel | #55, #77 |
 | `/ubicaciones/:id/graficas` | `paginas/cliente/Graficas.jsx` | 4 · Gráficas | #58 |
 | `/ubicaciones/:id/alertas` | `paginas/cliente/Alertas.jsx` | 5 · Alertas | #60 |
 | `/ubicaciones/:id/nodos` | `paginas/cliente/Nodos.jsx` | 6 · Gestionar nodos | #62 |
@@ -114,6 +114,10 @@ Cuentas del modo demo:
 | `/admin/inventario/:id` | `paginas/admin/MonitorFicha.jsx` | A2b · Ficha del monitor | #48 |
 
 La base compartida (`estilos/`, `componentes/`, `api/cliente.js`, `hooks/`, `sesion/`, `utils/`) es la tarea #29 y se termina **antes** que las pantallas.
+
+### Frecuencia del panel (#77)
+
+El Panel tiene el selector «En vivo», «10 s», «30 s» y «60 s». En vivo, cada lectura del WebSocket se pinta al llegar. Con otra frecuencia, las lecturas se acumulan y se pintan juntas cada 10, 30 o 60 s; las alertas se siguen actualizando al momento. La elección se guarda en `localStorage` (`telemon.refresco`) con `utils/refresco.js`, y es la misma que «Actualizar el panel cada» de Gestionar nodos. Un valor guardado que no es válido vuelve a «En vivo».
 
 ## Reglas para no chocar (conflictos de Git)
 
