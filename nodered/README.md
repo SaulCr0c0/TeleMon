@@ -421,6 +421,24 @@ Cada alerta abierta, actualizada o cerrada sale por `/ws/lecturas` con la forma 
 
 `accion` es `abierta`, `actualizada` (peor valor) o `cerrada`. El Panel ya recarga sus alertas con cualquier mensaje `tipo: "alerta"` de su ubicación.
 
+## Nodos sin conexión (#74)
+
+```text
+[Cada 30 s] → [Revisar nodos sin conexión] → [Abrir y cerrar SIN_CONEXION] → [Un aviso por alerta] → [Avisar alerta]
+```
+
+Cada 30 s una sola sentencia hace tres cosas:
+
+- **Abre** una alerta `SIN_CONEXION` (`No envía datos`, sin variable) para cada monitor `en_uso` cuya última lectura es más vieja que la espera de su ubicación (`ubicaciones.espera_sin_conexion_s`: 60, 120 o 300 s). Un monitor que todavía no envió ninguna lectura («esperando la primera lectura») no abre alerta. El índice `uq_alerta_abierta` evita repetirla.
+- **Cierra** con `volvió a conectarse` la que quedó abierta aunque ya llegó una lectura reciente (por si la lectura llegó justo mientras se abría).
+- **Cierra** con `monitor fuera de uso` la de un monitor que se desactivó, se liberó, se retiró o cambió de ubicación.
+
+Así la alerta se abre, como mucho, en la espera + 30 s.
+
+Al llegar una lectura, «Evaluar alertas» cierra la `SIN_CONEXION` abierta con `volvió a conectarse` y reinicia los contadores de ese monitor, para que las lecturas de antes del corte no se sumen a las nuevas. Mientras la alerta está abierta el monitor no envía lecturas, así que no se abren otras alertas para él.
+
+Cada apertura o cierre sale por `/ws/lecturas` con la misma forma que las demás alertas (`tipo: "alerta"`, `accion: "abierta"` o `"cerrada"`).
+
 ## Calidad del aire (#53)
 
 Con el R0 de cada monitor (`dispositivos.mq135_r0_kohm`):

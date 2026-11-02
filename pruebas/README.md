@@ -57,6 +57,16 @@ python -B -m unittest discover -s pruebas -p test_ficha_monitor.py -v
 
 Verifica que solo el admin entre, los datos técnicos y el estado de cada sensor con el monitor en línea, sin conexión o sin lecturas, el 400 por un R0 que no es número o no es mayor que 0, que liberar genere un código nuevo y conserve las lecturas, que un monitor retirado no se pueda reservar, liberar ni activar, y que cada cambio quede en el historial.
 
+## Nodos sin conexión (#74)
+
+`test_sin_conexion.py` prueba la revisión periódica y el cierre con la recepción real, contra PostgreSQL 17, en el mismo entorno aislado de `test_ubicaciones.py`. En el flujo temporal de la prueba la revisión corre cada 1 s en lugar de cada 30 s, y los avisos del WebSocket se guardan para revisarlos.
+
+```bash
+python -B -m unittest discover -s pruebas -p test_sin_conexion.py -v
+```
+
+Verifica que la alerta se abra una sola vez pasada la espera de su ubicación y avise por el WebSocket, que no se abra antes de la espera, para monitores sin lecturas ni para los que no están en uso, que se cierre con la primera lectura, y que se cierre si el monitor deja de estar en uso.
+
 ## Carga MQTT
 
 `carga.py` simula monitores publicando en `telemetria/<ID>/lecturas` con MQTT 3.1.1 y QoS 0. Usa un cliente oyente adicional para medir el recorrido publicador → broker → oyente. No mide persistencia en PostgreSQL ni actualización del navegador.
