@@ -47,6 +47,16 @@ python -B -m unittest discover -s pruebas -p test_clientes.py -v
 
 Verifica que solo el admin entre (401 y 403), la lista con origen, estado y conteos, la cuenta manual con contraseña temporal que solo aparece al crearla o restablecerla y que obliga a cambiarla, los 400, 404 y 409, la ficha con ubicaciones y monitores del cliente, la edición del correo de ingreso, que un cliente suspendido no pueda entrar y que al reactivarlo conserve sus datos.
 
+## Ficha del monitor (#70)
+
+`test_ficha_monitor.py` prueba la ficha, el R0, las notas, liberar y retirar con el inventario, la activación y el login reales, en el mismo entorno aislado de `test_ubicaciones.py`.
+
+```bash
+python -B -m unittest discover -s pruebas -p test_ficha_monitor.py -v
+```
+
+Verifica que solo el admin entre, los datos técnicos y el estado de cada sensor con el monitor en línea, sin conexión o sin lecturas, el 400 por un R0 que no es número o no es mayor que 0, que liberar genere un código nuevo y conserve las lecturas, que un monitor retirado no se pueda reservar, liberar ni activar, y que cada cambio quede en el historial.
+
 ## Carga MQTT
 
 `carga.py` simula monitores publicando en `telemetria/<ID>/lecturas` con MQTT 3.1.1 y QoS 0. Usa un cliente oyente adicional para medir el recorrido publicador → broker → oyente. No mide persistencia en PostgreSQL ni actualización del navegador.
