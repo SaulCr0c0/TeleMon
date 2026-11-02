@@ -696,7 +696,10 @@
             "5e5104a1c0de000e",
             "5e5104a1c0de000f",
             "5e5104a1c0de0010",
-            "5e5104a1c0de0011"
+            "5e5104a1c0de0011",
+            "5e5104a1c0de0102",
+            "5e5104a1c0de0103",
+            "5e5104a1c0de0104"
         ],
         "uncaught": false
     },
@@ -712,7 +715,7 @@
             ]
         ],
         "name": "Responder error",
-        "func": "node.error(`${msg.error.source.name || msg.error.source.type}: ${msg.error.message}`);\nmsg.statusCode = 500;\nmsg.payload = { mensaje: 'No se pudo completar la operación. Intenta de nuevo.' };\nreturn msg;",
+        "func": "if (msg.error?.source?.id === '5e5104a1c0de0103' && /usuarios_email_key/.test(msg.error.message)) {\n    msg.statusCode = 409;\n    msg.payload = { mensaje: 'Ya existe una cuenta con ese correo. Inicia sesión.' };\n    return msg;\n}\nnode.error(`${msg.error.source.name || msg.error.source.type}: ${msg.error.message}`);\nmsg.statusCode = 500;\nmsg.payload = { mensaje: 'No se pudo completar la operación. Intenta de nuevo.' };\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -730,6 +733,105 @@
         "name": "",
         "statusCode": "",
         "headers": {}
+    },
+    {
+        "id": "5e5104a1c0de0101",
+        "type": "http in",
+        "z": "5e5104a1c0de0001",
+        "name": "",
+        "url": "/api/registro",
+        "method": "post",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 160,
+        "y": 720,
+        "wires": [
+            [
+                "5e5104a1c0de0102"
+            ]
+        ]
+    },
+    {
+        "id": "5e5104a1c0de0102",
+        "type": "function",
+        "z": "5e5104a1c0de0001",
+        "name": "Validar registro",
+        "func": "const texto = (valor) => (typeof valor === 'string' ? valor.trim() : '');\nconst organizacion = texto(msg.payload?.organizacion);\nconst nombre = texto(msg.payload?.nombre);\nconst email = texto(msg.payload?.email).toLowerCase();\nconst clave = msg.payload?.clave;\nconst negar = (mensaje) => {\n    msg.statusCode = 400;\n    msg.payload = { mensaje };\n    return [null, msg];\n};\nif (!organizacion || !nombre) return negar('Completa la organización y tu nombre.');\nif (organizacion.length > 120 || nombre.length > 120) {\n    return negar('La organización y el nombre pueden tener hasta 120 caracteres.');\n}\nif (email.length > 254 || !/^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$/.test(email)) return negar('El correo no es válido.');\nif (typeof clave !== 'string' || clave.length < 8) return negar('La contraseña debe tener al menos 8 caracteres.');\nif (Buffer.byteLength(clave) > 72) return negar('La contraseña puede tener hasta 72 caracteres.');\nif (msg.payload?.terminos !== true) return negar('Debes aceptar los términos para continuar.');\nmsg.query = `WITH cliente AS (\n  INSERT INTO clientes (nombre, email_contacto, origen)\n  SELECT $1, $3, 'registro'\n  WHERE NOT EXISTS (SELECT 1 FROM usuarios WHERE email = $3)\n  RETURNING id, nombre\n), usuario AS (\n  INSERT INTO usuarios (rol_id, cliente_id, nombre, email, password_hash)\n  SELECT r.id, cliente.id, $2, $3, $4\n  FROM cliente JOIN roles r ON r.nombre = 'cliente'\n  RETURNING id, cliente_id, nombre\n)\nSELECT usuario.id, usuario.cliente_id, usuario.nombre, cliente.nombre AS organizacion\nFROM usuario JOIN cliente ON cliente.id = usuario.cliente_id`;\nmsg.params = [organizacion, nombre, email, bcrypt.hashSync(clave, 10)];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "bcrypt",
+                "module": "bcryptjs"
+            }
+        ],
+        "x": 370,
+        "y": 720,
+        "wires": [
+            [
+                "5e5104a1c0de0103"
+            ],
+            [
+                "5e5104a1c0de0105"
+            ]
+        ]
+    },
+    {
+        "id": "5e5104a1c0de0103",
+        "type": "postgresql",
+        "z": "5e5104a1c0de0001",
+        "name": "Crear cliente y usuario",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 590,
+        "y": 720,
+        "wires": [
+            [
+                "5e5104a1c0de0104"
+            ]
+        ]
+    },
+    {
+        "id": "5e5104a1c0de0104",
+        "type": "function",
+        "z": "5e5104a1c0de0001",
+        "name": "Abrir sesión",
+        "func": "const u = msg.payload[0];\nif (!u) {\n    msg.statusCode = 409;\n    msg.payload = { mensaje: 'Ya existe una cuenta con ese correo. Inicia sesión.' };\n    return msg;\n}\nconst usuario = {\n    id: u.id,\n    nombre: u.nombre,\n    organizacion: u.organizacion,\n    rol: 'cliente',\n    debeCambiarClave: false,\n    monitores: 0,\n    monitoresReservados: 0,\n};\nconst token = jwt.sign({ sub: u.id, rol: 'cliente', cliente: u.cliente_id }, env.get('JWT_SECRETO'), {\n    algorithm: 'HS256',\n    expiresIn: '12h',\n});\nmsg.statusCode = 201;\nmsg.payload = { token, usuario };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "jwt",
+                "module": "jsonwebtoken"
+            }
+        ],
+        "x": 800,
+        "y": 720,
+        "wires": [
+            [
+                "5e5104a1c0de0105"
+            ]
+        ]
+    },
+    {
+        "id": "5e5104a1c0de0105",
+        "type": "http response",
+        "z": "5e5104a1c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 980,
+        "y": 720,
+        "wires": []
     },
     {
         "id": "5e5104a1c0de0019",

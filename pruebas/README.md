@@ -27,6 +27,16 @@ Requiere Docker, la imagen del backend construida y los módulos del login ya in
 
 Los contenedores y sus volúmenes se eliminan explícitamente con `docker rm --force --volumes`, y después se elimina la red. Los archivos de configuración temporal también se borran. Ejecutar con `-B` evita dejar `__pycache__`.
 
+## Registro propio de clientes (#65)
+
+`test_registro.py` prueba `POST /api/registro` y el login real de Node-RED contra PostgreSQL 17, con el mismo entorno aislado de `test_ubicaciones.py`.
+
+```bash
+python -B -m unittest discover -s pruebas -p test_registro.py -v
+```
+
+Verifica que se cree el cliente sin monitores con su usuario y que pueda iniciar sesión, el 409 por correo repetido (también con mayúsculas y espacios), los 400 por contraseña corta o larga, correo inválido, datos vacíos y términos no aceptados, sin dejar filas creadas, y que de seis registros simultáneos con el mismo correo solo uno se cree.
+
 ## Carga MQTT
 
 `carga.py` simula monitores publicando en `telemetria/<ID>/lecturas` con MQTT 3.1.1 y QoS 0. Usa un cliente oyente adicional para medir el recorrido publicador → broker → oyente. No mide persistencia en PostgreSQL ni actualización del navegador.

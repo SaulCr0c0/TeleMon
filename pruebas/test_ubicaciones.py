@@ -91,12 +91,13 @@ class EntornoHTTP(unittest.TestCase):
         prueba = cls.preparar_flujos(prueba, flujos)
         for nodo in prueba:
             if nodo.get("type") == "function" and nodo.get("libs"):
-                # Se conserva la lógica real; se cargan JWT y crypto ya disponibles
+                # Se conserva la lógica real; se cargan JWT, crypto y bcrypt ya disponibles
                 # desde el contexto para no descargar módulos durante las pruebas.
                 for libreria in nodo["libs"]:
-                    if libreria["module"] not in {"jsonwebtoken", "crypto"}:
+                    globales = {"jsonwebtoken": "jwt", "crypto": "crypto", "bcryptjs": "bcrypt"}
+                    if libreria["module"] not in globales:
                         raise RuntimeError(f"Módulo no preparado para pruebas: {libreria['module']}")
-                    nombre = "jwt" if libreria["module"] == "jsonwebtoken" else "crypto"
+                    nombre = globales[libreria["module"]]
                     nodo["func"] = f"const {libreria['var']} = global.get('{nombre}');\n" + nodo["func"]
                 nodo["libs"] = []
 
@@ -116,7 +117,8 @@ class EntornoHTTP(unittest.TestCase):
                 "module.exports = { flowFile: 'flows.json', credentialSecret: false, "
                 "uiPort: 1880, httpAdminRoot: false, "
                 "functionGlobalContext: { jwt: require('/opt/telemon/node_modules/jsonwebtoken'), "
-                "crypto: require('node:crypto') } };\n",
+                "crypto: require('node:crypto'), "
+                "bcrypt: require('/usr/src/node-red/node_modules/bcryptjs') } };\n",
                 encoding="utf-8",
             )
             for archivo in ("flows.json", "settings.js"):
