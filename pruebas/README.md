@@ -77,6 +77,16 @@ python -B -m unittest discover -s pruebas -p test_agregacion.py -v
 
 Verifica una fila por nodo y minuto cerrado con promedio, mínimo, máximo y cantidad, que el minuto en curso no se agregue, que repetir no duplique y que una lectura tardía corrija su minuto, que la limpieza borre solo las crudas de más de 30 días y conserve las agregadas, y que Node-RED haga ambas cosas sin intervención.
 
+## Historial (#71)
+
+`test_historial.py` prueba `GET /api/ubicaciones/:id/lecturas` contra PostgreSQL 17, en el mismo entorno aislado de `test_ubicaciones.py`.
+
+```bash
+python -B -m unittest discover -s pruebas -p test_historial.py -v
+```
+
+Verifica la sesión y el 403 con la ubicación de otro cliente, el orden y la forma de las filas, los filtros de fechas y nodo, la paginación, los 400, los promedios por minuto, hora y día, y que 7 días agrupados por hora (6 nodos, 60 480 minutos) respondan en menos de 1 s.
+
 ## Carga MQTT
 
 `carga.py` simula monitores publicando en `telemetria/<ID>/lecturas` con MQTT 3.1.1 y QoS 0. Usa un cliente oyente adicional para medir el recorrido publicador → broker → oyente. No mide persistencia en PostgreSQL ni actualización del navegador.

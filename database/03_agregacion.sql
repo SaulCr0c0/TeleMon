@@ -47,3 +47,5 @@ BEGIN
   RETURN filas;
 END;
 $$;
+
+CREATE INDEX IF NOT EXISTS idx_lecturas_minuto_ubic_minuto ON lecturas_minuto (ubicacion_id, minuto);
