@@ -174,6 +174,8 @@ function FormularioUmbrales({ datos, ruta }) {
           disabled={guardando}
           onChange={(evento) => cambiar('esperaSinConexionS', evento.target.value)}
           opciones={[
+            { valor: 8, texto: 'Inmediatamente' },
+            { valor: 10, texto: '10 segundos' },
             { valor: 30, texto: '30 segundos' },
             { valor: 60, texto: '1 minuto' },
             { valor: 120, texto: '2 minutos' },

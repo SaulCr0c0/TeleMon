@@ -489,15 +489,15 @@ Las tres rutas son del cliente dueño de la ubicación: sin sesión 401, ubicaci
 | Mínimo o máximo que no es número | 400 `Completa el mínimo y el máximo de … con números.` |
 | Mínimo mayor o igual al máximo | 400 `El mínimo de … debe ser menor que el máximo.` |
 | `calidadAire` distinto de `malo`, `moderado` o `nunca` | 400 `Elige cuándo alertar por la calidad del aire.` |
-| Espera distinta de 30, 60, 120 o 300 | 400 `La espera debe ser de 30 segundos, 1, 2 o 5 minutos.` |
+| Espera distinta de 8, 10, 30, 60, 120 o 300 | 400 `La espera debe ser inmediata, de 10 o 30 segundos, o de 1, 2 o 5 minutos.` |
 
 ## Nodos sin conexión (#74)
 
 ```text
-[Cada 30 s] → [Revisar nodos sin conexión] → [Abrir y cerrar SIN_CONEXION] → [Un aviso por alerta] → [Avisar alerta]
+[Cada 2 s] → [Revisar nodos sin conexión] → [Abrir y cerrar SIN_CONEXION] → [Un aviso por alerta] → [Avisar alerta]
 ```
 
-Cada 30 s una sola sentencia hace tres cosas:
+Cada 2 s (para que la espera «Inmediatamente», de 8 s, avise a tiempo) una sola sentencia hace tres cosas:
 
 - **Abre** una alerta `SIN_CONEXION` (`No envía datos`, sin variable) para cada monitor `en_uso` cuya última lectura es más vieja que la espera de su ubicación (`ubicaciones.espera_sin_conexion_s`: 60, 120 o 300 s). Un monitor que todavía no envió ninguna lectura («esperando la primera lectura») no abre alerta. El índice `uq_alerta_abierta` evita repetirla.
 - **Cierra** con `volvió a conectarse` la que quedó abierta aunque ya llegó una lectura reciente (por si la lectura llegó justo mientras se abría).
