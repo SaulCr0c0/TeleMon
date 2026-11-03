@@ -283,6 +283,7 @@ uint64_t horaMs() {
 
 void iniciarWifi() {
   WiFi.mode(WIFI_STA);
+  WiFi.setSleep(false);
   WiFi.setAutoReconnect(true);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   ultimoIntentoWifi = millis();
