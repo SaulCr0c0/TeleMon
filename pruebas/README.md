@@ -117,6 +117,16 @@ python -B -m unittest discover -s pruebas -p test_nodos.py -v
 
 Verifica la sesión y el 403 con un nodo o un destino de otro cliente, renombrar, que tras mover las lecturas nuevas vayan al destino y las anteriores queden en el origen, que un nodo desactivado deje de guardar lecturas y vuelva al reactivarlo, el cierre de sus alertas, los eventos anotados y los 400 y 409.
 
+## Reinicios del ESP32 (#76)
+
+`test_reinicios.py` manda lecturas por la recepción real, contra PostgreSQL 17, en el mismo entorno aislado de `test_ubicaciones.py`.
+
+```bash
+python -B -m unittest discover -s pruebas -p test_reinicios.py -v
+```
+
+Verifica que se anote un solo «Reinicio del monitor» cuando el `uptime` vuelve a empezar, que la primera lectura y un `uptime` nulo no cuenten, y que no se abran alertas.
+
 ## Carga MQTT
 
 `carga.py` simula monitores publicando en `telemetria/<ID>/lecturas` con MQTT 3.1.1 y QoS 0. Usa un cliente oyente adicional para medir el recorrido publicador → broker → oyente. No mide persistencia en PostgreSQL ni actualización del navegador.
