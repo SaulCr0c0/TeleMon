@@ -150,6 +150,15 @@ Dónde vive cada dato:
 Resultado en el servidor (03/11/2026, antes de los volúmenes con nombre): **PASA**. Stack recreado en 40 s; se conservaron `flows.json` y `flows_cred.json` (mismo hash en host y contenedor), 16 módulos de Node-RED, 2 usuarios, 2 clientes, 3 ubicaciones, 3 dispositivos, 12 umbrales, 10 alertas, 8 eventos, las 3525 lecturas y los usuarios MQTT `esp32` y `nodered`; llegaron 7 lecturas nuevas del ESP32 sin tocarlo y `https://telemon.site` siguió respondiendo. Quedaron 2 volúmenes anónimos huérfanos de Mosquitto, que es lo que corrigen los volúmenes con nombre.
 
 Antes de #56, `/mosquitto/data` y `/mosquitto/log` usaban volúmenes anónimos de la imagen: cada `down` + `up` creaba dos nuevos y dejaba los anteriores huérfanos. `docker compose down -v` sí borra los volúmenes con nombre y con ellos las lecturas: no usarlo en el servidor.
+## Medición del R0 del MQ-135 (#37)
+
+`medir_r0.sh` calcula el R0 de un monitor con las lecturas que ya están en la base. Solo lee; no cambia nada.
+
+```bash
+./pruebas/medir_r0.sh F8:B3:B7:2B:FC:24 10
+```
+
+Para cada lectura de los últimos N minutos (10 por defecto) calcula Rs = RL_ef · (5 − V) / V, con RL_ef = 1 kΩ ∥ 30 kΩ (igual que Node-RED), y muestra el promedio de Rs (el R0), la variación (desviación / promedio), la deriva (segunda mitad del periodo contra la primera), las horas encendido según el `uptime` y el R0 cargado hoy. El procedimiento y la tabla de resultados están en [`docs/medicion-r0.md`](../docs/medicion-r0.md).
 
 ## Carga MQTT
 
