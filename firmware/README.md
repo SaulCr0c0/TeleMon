@@ -31,7 +31,9 @@ Código C++ del nodo ESP32 (PlatformIO): lectura de DS18B20, DHT11, HW-611 (BMP2
    ```bash
    cp firmware/include/secrets.h.example firmware/include/secrets.h
    ```
-   y completar `WIFI_SSID`, `WIFI_PASS`, `MQTT_HOST` (IP de la PC del broker) y `MQTT_PASS` (pedirla a Adrian).
+   y completar `WIFI_SSID`, `WIFI_PASS` (red de 2.4 GHz), `MQTT_URI` y `MQTT_PASS` (pedirla a Adrian). `MQTT_URI` elige el camino:
+   - `mqtt://192.168.1.130:1883`: el ESP32 está en la misma red que el server (MQTT directo).
+   - `wss://mqtt.telemon.site:443/`: el ESP32 está en cualquier otra red con internet. Va por MQTT sobre WebSocket cifrado (TLS) a través del túnel de Cloudflare; el certificado se valida con las raíces de `include/raices.h` (ISRG Root X1/X2 de Let's Encrypt y GTS Root R1/R4 de Google).
 3. Compilar, cargar y abrir el monitor serie (desde la carpeta `firmware/`):
    ```bash
    pio run                 # compilar
@@ -41,7 +43,7 @@ Código C++ del nodo ESP32 (PlatformIO): lectura de DS18B20, DHT11, HW-611 (BMP2
 
 ## Bibliotecas
 
-`PubSubClient` (MQTT 3.1.1), `OneWire`, `DallasTemperature`, `ArduinoJson` 7. PlatformIO las descarga solo según `platformio.ini`. El BMP280 y el DHT11 se leen con código propio (ver «Correcciones de sensores»), sin las bibliotecas de Adafruit.
+`esp-mqtt` de Espressif (incluido en el framework; MQTT 3.1.1 por TCP o por WebSocket con TLS), `OneWire`, `DallasTemperature`, `ArduinoJson` 7. PlatformIO las descarga solo según `platformio.ini`. El BMP280 y el DHT11 se leen con código propio (ver «Correcciones de sensores»), sin las bibliotecas de Adafruit.
 
 ## Funcionamiento
 
@@ -110,7 +112,8 @@ Con esos datos se completan `OFFSET_TEMP`, `OFFSET_HUM`, `OFFSET_PRES` y `MQ135_
 
 | Problema | Solución |
 |---|---|
-| `[MQTT] falló, estado -2` | No hay conexión TCP: revisar `MQTT_HOST`, que el broker esté arriba y que el firewall permita el puerto 1883 |
+| `[MQTT] error: tipo 1` (transporte) | No llega al broker: con `mqtt://`, revisar la IP, que esté en la misma red y el puerto 1883; con `wss://`, que haya internet y que `mqtt.telemon.site` esté en el túnel. Un `tls` distinto de 0 indica un problema de certificado |
+| `[MQTT] error: tipo 2`, respuesta 4 o 5 | Usuario o contraseña incorrectos, o el client id no coincide con la MAC |
 | `[MQTT] falló, estado 4` o `5` | Usuario o contraseña incorrectos en `secrets.h` |
 | Conecta pero no llega nada a `mosquitto_sub` | El tema no coincide con el client id (la ACL descarta la publicación) |
 | `ts` siempre `null` | Sin salida a Internet o con el puerto 123/UDP (NTP) bloqueado |
