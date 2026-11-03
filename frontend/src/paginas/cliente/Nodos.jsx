@@ -9,7 +9,6 @@ import Icono from '../../componentes/ui/Icono';
 import useApi from '../../hooks/useApi';
 import { normalizarCodigo } from '../../utils/validacion';
 import estilos from './Nodos.module.css';
-import { REFRESCOS, guardarRefresco, leerRefresco } from '../../utils/refresco';
 
 const SENSORES = [
   ['temperatura', 'Temperatura'],
@@ -217,7 +216,6 @@ export default function Nodos() {
   const [aviso, setAviso] = useState('');
   const [errorGuardar, setErrorGuardar] = useState('');
   const [guardando, setGuardando] = useState(false);
-  const [refresco, setRefresco] = useState(leerRefresco);
   const editando = borrador !== null;
 
   const nodos = editando ? borrador : (datos?.nodos ?? []);
@@ -387,26 +385,7 @@ export default function Nodos() {
         </p>
       )}
 
-      <div className={estilos.pie}>
-        <label className={estilos.refresco}>
-          Actualizar el panel cada
-          <select
-            className={`${estilos.control} ${estilos.selectPequeno}`}
-            value={refresco}
-            onChange={(e) => {
-              setRefresco(e.target.value);
-              guardarRefresco(e.target.value);
-            }}
-          >
-            {REFRESCOS.map((r) => (
-              <option key={r.valor} value={r.valor}>
-                {r.largo}
-              </option>
-            ))}
-          </select>
-        </label>
-        {MODO_DEMO && <span className={estilos.nota}>Datos de ejemplo.</span>}
-      </div>
+      {MODO_DEMO && <p className={estilos.nota}>Datos de ejemplo.</p>}
     </>
   );
 }

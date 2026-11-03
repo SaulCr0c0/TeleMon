@@ -111,10 +111,4 @@ describe('Nodos', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Biblioteca se movió a Vinto');
     expect(screen.queryByText('Biblioteca')).not.toBeInTheDocument();
   });
-
-  it('guarda la frecuencia de actualización del panel', async () => {
-    await cargar();
-    await userEvent.selectOptions(screen.getByLabelText('Actualizar el panel cada'), '30');
-    expect(localStorage.getItem('telemon.refresco')).toBe('30');
-  });
 });
