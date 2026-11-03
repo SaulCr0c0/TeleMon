@@ -127,6 +127,16 @@ python -B -m unittest discover -s pruebas -p test_reinicios.py -v
 
 Verifica que se anote un solo «Reinicio del monitor» cuando el `uptime` vuelve a empezar, que la primera lectura y un `uptime` nulo no cuenten, y que no se abran alertas.
 
+## Medición del R0 del MQ-135 (#37)
+
+`medir_r0.sh` calcula el R0 de un monitor con las lecturas que ya están en la base. Solo lee; no cambia nada.
+
+```bash
+./pruebas/medir_r0.sh F8:B3:B7:2B:FC:24 10
+```
+
+Para cada lectura de los últimos N minutos (10 por defecto) calcula Rs = RL_ef · (5 − V) / V, con RL_ef = 1 kΩ ∥ 30 kΩ (igual que Node-RED), y muestra el promedio de Rs (el R0), la variación (desviación / promedio), la deriva (segunda mitad del periodo contra la primera), las horas encendido según el `uptime` y el R0 cargado hoy. El procedimiento y la tabla de resultados están en [`docs/medicion-r0.md`](../docs/medicion-r0.md).
+
 ## Carga MQTT
 
 `carga.py` simula monitores publicando en `telemetria/<ID>/lecturas` con MQTT 3.1.1 y QoS 0. Usa un cliente oyente adicional para medir el recorrido publicador → broker → oyente. No mide persistencia en PostgreSQL ni actualización del navegador.
