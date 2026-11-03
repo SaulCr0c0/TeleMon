@@ -68,7 +68,6 @@ export default function Login() {
             Monitoreo ambiental en tiempo real para cada una de tus ubicaciones.
           </p>
         </div>
-        <p className={estilos.pie}>Servicios telemáticos · UMSS</p>
       </section>
 
       <section className={estilos.lado}>

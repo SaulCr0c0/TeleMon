@@ -18,6 +18,7 @@
 
 .lema {
   max-width: 440px;
+  margin-block: auto;
   animation: subir 0.6s ease-out both;
 }
 
@@ -33,11 +34,6 @@
   font-size: 16px;
   line-height: 1.6;
   color: var(--texto-sidebar);
-}
-
-.pie {
-  font-size: 13px;
-  color: var(--texto-sidebar-suave);
 }
 
 .lado {
