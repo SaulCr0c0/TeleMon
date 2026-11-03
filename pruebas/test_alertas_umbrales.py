@@ -118,8 +118,8 @@ INSERT INTO alertas (dispositivo_id, ubicacion_id, tipo, variable, mensaje, peor
             ({"presion": {"min": "740", "max": 760}}, "Completa el mínimo y el máximo de la presión con números."),
             ({"temperatura": None}, "Completa el mínimo y el máximo de la temperatura con números."),
             ({"calidadAire": "bueno"}, "Elige cuándo alertar por la calidad del aire."),
-            ({"esperaSinConexionS": 90}, "La espera debe ser de 1, 2 o 5 minutos."),
-            ({"esperaSinConexionS": "120"}, "La espera debe ser de 1, 2 o 5 minutos."),
+            ({"esperaSinConexionS": 90}, "La espera debe ser de 30 segundos, 1, 2 o 5 minutos."),
+            ({"esperaSinConexionS": "120"}, "La espera debe ser de 30 segundos, 1, 2 o 5 minutos."),
         ):
             with self.subTest(cambios=cambios):
                 self.assertEqual(self.pedir("PUT", "/api/ubicaciones/1/umbrales", {**UMBRALES, **cambios})[:2],

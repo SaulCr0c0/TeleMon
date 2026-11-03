@@ -6,6 +6,15 @@ import { api } from '../../api/cliente';
 import { dibujar } from '../../test/dibujar';
 import Alertas from './Alertas';
 
+const tiempoReal = vi.hoisted(() => ({ manejador: null }));
+
+vi.mock('../../hooks/useTiempoReal', () => ({
+  default: (_ubicacionId, manejador) => {
+    tiempoReal.manejador = manejador;
+    return { conectado: true };
+  },
+}));
+
 const ahora = new Date(2026, 9, 18, 15, 40);
 const haceMinutos = (minutos) => new Date(ahora.getTime() - minutos * 60000).toISOString();
 const opciones = {
@@ -87,6 +96,16 @@ afterEach(() => {
 });
 
 describe('Alertas', () => {
+  it('vuelve a consultar las alertas en cuanto llega un aviso en vivo', async () => {
+    dibujar(<Alertas />, opciones);
+    await screen.findByRole('table', { name: 'Alertas activas' });
+    const antes = api.get.mock.calls.length;
+    await act(async () => tiempoReal.manejador({ tipo: 'lectura', ubicacionId: 1 }));
+    expect(api.get.mock.calls.length).toBe(antes);
+    await act(async () => tiempoReal.manejador({ tipo: 'alerta', ubicacionId: 1 }));
+    expect(api.get).toHaveBeenCalledTimes(antes + 2);
+  });
+
   it('muestra las tres activas con los tipos, duración, unidades y navegación del diseño', async () => {
     dibujar(<Alertas />, opciones);
     const tabla = await screen.findByRole('table', { name: 'Alertas activas' });

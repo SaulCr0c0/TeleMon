@@ -485,7 +485,7 @@ Las tres rutas son del cliente dueño de la ubicación: sin sesión 401, ubicaci
 | Mínimo o máximo que no es número | 400 `Completa el mínimo y el máximo de … con números.` |
 | Mínimo mayor o igual al máximo | 400 `El mínimo de … debe ser menor que el máximo.` |
 | `calidadAire` distinto de `malo`, `moderado` o `nunca` | 400 `Elige cuándo alertar por la calidad del aire.` |
-| Espera distinta de 60, 120 o 300 | 400 `La espera debe ser de 1, 2 o 5 minutos.` |
+| Espera distinta de 30, 60, 120 o 300 | 400 `La espera debe ser de 30 segundos, 1, 2 o 5 minutos.` |
 
 ## Nodos sin conexión (#74)
 

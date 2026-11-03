@@ -10,6 +10,7 @@ import Segmentado from '../../componentes/ui/Segmentado';
 import Tarjeta from '../../componentes/ui/Tarjeta';
 import tabla from '../../componentes/ui/Tabla.module.css';
 import useApi from '../../hooks/useApi';
+import useTiempoReal from '../../hooks/useTiempoReal';
 import { duracion, hora } from '../../utils/formato';
 import estilos from './Alertas.module.css';
 
@@ -25,6 +26,14 @@ function AlertasUbicacion({ ubicacionId, nombreUbicacion }) {
   const abiertas = useApi(`/api/ubicaciones/${ubicacionId}/alertas?estado=abiertas`);
   const cerradas = useApi(`/api/ubicaciones/${ubicacionId}/alertas?estado=cerradas`);
   const base = `/ubicaciones/${ubicacionId}`;
+  const { recargar: recargarAbiertas } = abiertas;
+  const { recargar: recargarCerradas } = cerradas;
+
+  useTiempoReal(ubicacionId, (mensaje) => {
+    if (mensaje.tipo !== 'alerta') return;
+    recargarAbiertas();
+    recargarCerradas();
+  });
 
   useEffect(() => {
     const temporizador = setInterval(() => setAhora(new Date()), 60000);

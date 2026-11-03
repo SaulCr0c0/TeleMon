@@ -1,5 +1,6 @@
 import { Outlet, useMatch, useNavigate } from 'react-router-dom';
 import useApi from '../../hooks/useApi';
+import useTiempoReal from '../../hooks/useTiempoReal';
 import { useSesion } from '../../sesion/useSesion';
 import { iniciales } from '../../utils/formato';
 import BarraLateral from './BarraLateral';
@@ -10,7 +11,12 @@ export default function LayoutCliente() {
   const navegar = useNavigate();
   const coincidencia = useMatch('/ubicaciones/:ubicacionId/*');
   const ubicacionId = coincidencia?.params.ubicacionId;
-  const { datos: ubicacion } = useApi(ubicacionId ? `/api/ubicaciones/${ubicacionId}` : null);
+  const { datos: ubicacion, recargar } = useApi(
+    ubicacionId ? `/api/ubicaciones/${ubicacionId}` : null,
+  );
+  useTiempoReal(ubicacionId, (mensaje) => {
+    if (mensaje.tipo === 'alerta') recargar();
+  });
 
   const grupos = [
     {
