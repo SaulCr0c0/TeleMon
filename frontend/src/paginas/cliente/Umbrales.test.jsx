@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Link } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -48,6 +48,11 @@ describe('Umbrales', () => {
     ]);
     expect(screen.getByLabelText('Alertar cuando el nivel sea')).toHaveValue('malo');
     expect(screen.getByLabelText('Esperar')).toHaveValue('120');
+    expect(
+      within(screen.getByLabelText('Esperar'))
+        .getAllByRole('option')
+        .map((opcion) => opcion.textContent),
+    ).toEqual(['30 segundos', '1 minuto', '2 minutos', '5 minutos']);
     expect(screen.getByText(/Última modificación: Ana Rojas/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Volver al Panel/ })).toHaveAttribute(
       'href',

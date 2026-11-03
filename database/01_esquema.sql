@@ -33,7 +33,7 @@ CREATE TABLE ubicaciones (
   nombre TEXT NOT NULL,
   descripcion TEXT,
   archivada BOOLEAN NOT NULL DEFAULT false,
-  espera_sin_conexion_s INTEGER NOT NULL DEFAULT 120 CHECK (espera_sin_conexion_s IN (60, 120, 300)),
+  espera_sin_conexion_s INTEGER NOT NULL DEFAULT 120 CHECK (espera_sin_conexion_s IN (30, 60, 120, 300)),
   creado_en TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
