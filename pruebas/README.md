@@ -107,6 +107,16 @@ python -B -m unittest discover -s pruebas -p test_alertas_umbrales.py -v
 
 Verifica la sesión y el 403 con la ubicación de otro cliente, las alertas abiertas y cerradas con su forma y orden, leer y guardar los umbrales (rangos, calidad del aire y espera), los 400 por valores inválidos y que un umbral guardado abra la alerta desde las lecturas siguientes.
 
+## Gestionar nodos (#75)
+
+`test_nodos.py` prueba `PATCH /api/dispositivos/:id` con la recepción real, contra PostgreSQL 17, en el mismo entorno aislado de `test_ubicaciones.py`.
+
+```bash
+python -B -m unittest discover -s pruebas -p test_nodos.py -v
+```
+
+Verifica la sesión y el 403 con un nodo o un destino de otro cliente, renombrar, que tras mover las lecturas nuevas vayan al destino y las anteriores queden en el origen, que un nodo desactivado deje de guardar lecturas y vuelva al reactivarlo, el cierre de sus alertas, los eventos anotados y los 400 y 409.
+
 ## Carga MQTT
 
 `carga.py` simula monitores publicando en `telemetria/<ID>/lecturas` con MQTT 3.1.1 y QoS 0. Usa un cliente oyente adicional para medir el recorrido publicador → broker → oyente. No mide persistencia en PostgreSQL ni actualización del navegador.

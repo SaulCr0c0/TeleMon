@@ -377,6 +377,33 @@ python -B -m unittest discover -s pruebas -p test_activacion.py -v
 
 Las pruebas usan contenedores aislados y eliminan contenedores, volúmenes y red al terminar. `-B` evita generar caché de Python. Más detalles en [pruebas de activación](../pruebas/README.md#activación-de-monitores-67).
 
+### `PATCH /api/dispositivos/:id` (#75)
+
+```text
+[PATCH /api/dispositivos/:id] → [verificar sesión] → [Validar cambios del nodo] → [Nodo y destino]
+  → [Preparar cambios del nodo] → [Guardar cambios del nodo] → [Responder nodo]
+```
+
+Lo usa «Guardar cambios» de Gestionar nodos. Solo el cliente dueño del nodo, con cualquiera de estos campos (uno o varios):
+
+| Campo | Qué hace | Evento |
+|---|---|---|
+| `nombre` | Renombra (1 a 60 caracteres, sin espacios a los lados) | `Renombrado de «A» a «B»` |
+| `ubicacionId` | Lo mueve a otra ubicación **del mismo cliente** y no archivada. Las lecturas nuevas van al destino; las anteriores se quedan en el origen | `Movido de «X» a «Y»` |
+| `estado: "desactivado"` | Deja de guardar lecturas (la recepción solo acepta `en_uso`) y sale del Panel; sigue en Gestionar nodos | `Desactivado por el cliente` |
+| `estado: "en_uso"` | Lo reactiva | `Reactivado por el cliente` |
+
+- Al desactivar o mover se cierran sus alertas abiertas con `nodo desactivado` o `nodo movido`.
+- Un cambio que no cambia nada no anota eventos. Todo va en una sola sentencia: si falla, no queda nada a medias.
+- Responde 200 con `{ id, ubicacionId, nombre, estado }`.
+
+| Caso | Respuesta |
+|---|---|
+| Nodo o ubicación de destino de otro cliente, o nodo inexistente | 403 `No tienes permiso.` |
+| Nodo que no está `en_uso` ni `desactivado` (reservado, retirado…) | 409 `Este nodo no está activo en tu cuenta.` |
+| Destino archivado | 409 `No se puede mover a una ubicación archivada.` |
+| Sin campos, campos de más, nombre vacío o largo, estado o ubicación inválidos | 400 |
+
 ## Alertas UMBRAL y SENSOR (#69)
 
 ```text
