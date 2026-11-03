@@ -22,6 +22,8 @@ services:
       - "${MQTT_PORT:-1883}:1883"
     volumes:
       - ./mosquitto/config:/mosquitto/config:ro
+      - mosquitto_datos:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
     networks:
       - red_telematica
 
@@ -117,3 +119,5 @@ networks:
 
 volumes:
   postgres_datos:
+  mosquitto_datos:
+  mosquitto_log:
