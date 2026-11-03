@@ -1,4 +1,4 @@
-import { act, fireEvent, screen, within } from '@testing-library/react';
+import { act, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ErrorApi, api } from '../../api/cliente';
@@ -55,7 +55,8 @@ describe('Panel', () => {
     expect(nodo01.getByText('748.4 hPa')).toBeInTheDocument();
     expect(nodo01.getByText('Bueno · 0.95')).toBeInTheDocument();
     expect(nodo01.getByText('En línea')).toBeInTheDocument();
-    expect(screen.getByText(/^En vivo · hace \d+ s$/)).toBeInTheDocument();
+    expect(screen.getByText('En vivo')).toBeInTheDocument();
+    expect(screen.queryByText(/hace \d+/)).not.toBeInTheDocument();
     expect(await screen.findByText('3 alertas activas.')).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -71,7 +72,7 @@ describe('Panel', () => {
     expect(within(fila('Patio')).getByText('Moderado · 0.66')).toBeInTheDocument();
     expect(within(fila('Biblioteca')).getByText('sin calibrar')).toBeInTheDocument();
     const salon = within(fila('Salón de maestros'));
-    expect(salon.getByText('Sin conexión · hace 6 min')).toBeInTheDocument();
+    expect(salon.getByText('Sin conexión')).toBeInTheDocument();
     expect(salon.getAllByText('—')).toHaveLength(4);
     expect(salon.queryByText('sin respuesta')).not.toBeInTheDocument();
   });
@@ -182,60 +183,47 @@ describe('Panel', () => {
     expect(screen.queryByRole('table')).not.toBeInTheDocument();
   });
 
-  it('acumula las lecturas y las pinta con la frecuencia elegida', async () => {
+  it('pinta cada lectura en cuanto llega y no muestra un selector de frecuencia', async () => {
     await cargar();
-    const grupo = within(screen.getByRole('group', { name: 'Actualizar el panel' }));
-    expect(grupo.getByRole('button', { name: 'En vivo' })).toHaveAttribute('aria-pressed', 'true');
-    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
-    try {
-      fireEvent.click(grupo.getByRole('button', { name: '10 s' }));
-      expect(localStorage.getItem('telemon.refresco')).toBe('10');
-      expect(screen.getByText(/^Cada 10 s · hace/)).toBeInTheDocument();
-      const lectura = {
-        tipo: 'lectura',
-        ubicacionId: 1,
-        dispositivoId: 12,
-        fecha: new Date().toISOString(),
-        temperatura: 25.1,
-        humedad: 44,
-        presion: 748.6,
-        rsR0: 0.93,
-        nivelAire: 'bueno',
-      };
-      enviar(lectura);
-      act(() => vi.advanceTimersByTime(9000));
-      expect(within(fila('Aula 3')).queryByText('25.1 °C')).not.toBeInTheDocument();
-      act(() => vi.advanceTimersByTime(1000));
-      expect(within(fila('Aula 3')).getByText('25.1 °C')).toBeInTheDocument();
-
-      enviar({ ...lectura, fecha: new Date(Date.now() + 1000).toISOString(), temperatura: 26.4 });
-      expect(within(fila('Aula 3')).queryByText('26.4 °C')).not.toBeInTheDocument();
-      fireEvent.click(grupo.getByRole('button', { name: 'En vivo' }));
-      expect(within(fila('Aula 3')).getByText('26.4 °C')).toBeInTheDocument();
-      enviar({ ...lectura, fecha: new Date(Date.now() + 2000).toISOString(), temperatura: 27 });
-      expect(within(fila('Aula 3')).getByText('27.0 °C')).toBeInTheDocument();
-      expect(localStorage.getItem('telemon.refresco')).toBe('vivo');
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(screen.queryByRole('group', { name: 'Actualizar el panel' })).not.toBeInTheDocument();
+    enviar({
+      tipo: 'lectura',
+      ubicacionId: 1,
+      dispositivoId: 12,
+      fecha: new Date().toISOString(),
+      temperatura: 25.1,
+      humedad: 44,
+      presion: 748.6,
+      rsR0: 0.93,
+      nivelAire: 'bueno',
+    });
+    expect(within(fila('Aula 3')).getByText('25.1 °C')).toBeInTheDocument();
   });
 
-  it('recuerda la frecuencia elegida al volver', async () => {
-    localStorage.setItem('telemon.refresco', '30');
+  it('deja de decir en vivo cuando ningún nodo está enviando datos', async () => {
+    respuestasFalsas({
+      '/ultimas': async () => [
+        {
+          dispositivoId: 7,
+          nombre: 'Patio',
+          conectado: false,
+          fecha: new Date(Date.now() - 10 * 60 * 1000).toISOString(),
+          temperatura: 21,
+          humedad: 40,
+          presion: 748,
+          rsR0: 0.9,
+          nivelAire: 'bueno',
+        },
+      ],
+    });
     await cargar();
-    expect(screen.getByRole('button', { name: '30 s' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByText(/^Cada 30 s · hace/)).toBeInTheDocument();
-  });
-
-  it('usa en vivo si la frecuencia guardada no es válida', async () => {
-    localStorage.setItem('telemon.refresco', '5');
-    await cargar();
-    expect(screen.getByRole('button', { name: 'En vivo' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByText('En vivo')).not.toBeInTheDocument();
+    expect(within(fila('Patio')).getByText('Sin conexión')).toBeInTheDocument();
   });
 
   it('indica cuando el canal en vivo está caído', async () => {
     tiempoReal.conectado = false;
     await cargar();
-    expect(screen.getByText('Sin conexión en vivo')).toBeInTheDocument();
+    expect(screen.queryByText('En vivo')).not.toBeInTheDocument();
   });
 });
