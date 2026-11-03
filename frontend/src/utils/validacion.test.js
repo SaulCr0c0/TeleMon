@@ -4,7 +4,6 @@ import {
   esCorreo,
   normalizarCodigo,
   normalizarMac,
-  r0Valido,
   rangoValido,
   reglasClave,
 } from './validacion';
@@ -52,12 +51,5 @@ describe('umbrales y R0', () => {
     expect(rangoValido('18', '28')).toBe(true);
     expect(rangoValido('28', '18')).toBe(false);
     expect(rangoValido('', '18')).toBe(false);
-  });
-
-  it('R0 debe ser un número mayor que 0', () => {
-    expect(r0Valido('41.2')).toBe(true);
-    expect(r0Valido('41,2')).toBe(true);
-    expect(r0Valido('0')).toBe(false);
-    expect(r0Valido('abc')).toBe(false);
   });
 });

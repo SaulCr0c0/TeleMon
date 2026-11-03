@@ -71,7 +71,7 @@
         "type": "function",
         "z": "7f3b2c1a9d4e5f01",
         "name": "Calcular aire y tiempos",
-        "func": "const disp = msg.payload[0];\nif (!disp) {\n    node.warn(`Monitor no registrado: ${msg.mac}`);\n    return null;\n}\nif (disp.estado !== 'en_uso') {\n    node.warn(`Monitor ${msg.mac} en estado ${disp.estado}: no se guardan sus lecturas`);\n    return null;\n}\nif (disp.ubicacion_id === null) {\n    node.warn(`Monitor ${msg.mac} en uso sin ubicación asignada`);\n    return null;\n}\nif (disp.cliente_id !== disp.cliente_ubicacion) {\n    node.warn(`La ubicación ${disp.ubicacion_id} no pertenece al cliente del monitor ${msg.mac}`);\n    return null;\n}\nconst l = msg.lectura;\nconst latencia = l.ts !== null && Math.abs(msg.llegada - l.ts) <= 10000 ? msg.llegada - l.ts : null;\nconst RL_EF = (1 * 30) / (1 + 30);\nconst r0 = disp.mq135_r0_kohm === null ? null : Number(disp.mq135_r0_kohm);\nlet rsR0 = null;\nlet nivel = null;\nif (l.mq135_v !== null && l.mq135_v < 5 && r0 > 0) {\n    const razon = Math.round(((RL_EF * (5 - l.mq135_v)) / l.mq135_v / r0) * 1000) / 1000;\n    if (razon <= 999.999) {\n        rsR0 = razon;\n        nivel = razon >= 0.8 ? 'bueno' : razon >= 0.5 ? 'moderado' : 'malo';\n    } else {\n        node.warn(`Rs/R0 de ${msg.mac} fuera de rango (${razon}): revisar el R0 del monitor`);\n    }\n}\nmsg.calculado = { latencia, rsR0, nivel };\nmsg.query = `WITH previo AS (\n  SELECT ultimo_uptime_s, ultima_lectura_en FROM dispositivos WHERE id = $1\n), monitor AS (\n  UPDATE dispositivos\n  SET ultima_lectura_en = GREATEST(ultima_lectura_en, to_timestamp($3 / 1000.0)),\n      ultimo_rssi = CASE WHEN ultima_lectura_en > to_timestamp($3 / 1000.0) THEN ultimo_rssi\n        ELSE COALESCE($13::smallint, ultimo_rssi) END,\n      ultimo_uptime_s = CASE WHEN ultima_lectura_en > to_timestamp($3 / 1000.0) THEN ultimo_uptime_s\n        ELSE COALESCE($12::integer, ultimo_uptime_s) END,\n      fw = CASE WHEN ultima_lectura_en > to_timestamp($3 / 1000.0) THEN fw\n        ELSE COALESCE($14::text, fw) END\n  WHERE id = $1 AND estado = 'en_uso' AND ubicacion_id = $2\n  RETURNING id, ubicacion_id\n), reinicio AS (\n  INSERT INTO eventos_dispositivo (dispositivo_id, texto)\n  SELECT monitor.id, 'Reinicio del monitor'\n  FROM monitor, previo\n  WHERE $12::integer IS NOT NULL AND previo.ultimo_uptime_s IS NOT NULL AND $12::integer < previo.ultimo_uptime_s\n    AND (previo.ultima_lectura_en IS NULL OR to_timestamp($3 / 1000.0) >= previo.ultima_lectura_en)\n)\nINSERT INTO lecturas (dispositivo_id, ubicacion_id, fecha_hora, ts_dispositivo, latencia_ms,\n  temperatura, humedad, presion, mq135_v, rs_r0, nivel_aire, uptime_s)\nSELECT id, ubicacion_id, to_timestamp($3 / 1000.0), to_timestamp($4 / 1000.0), $5::integer,\n  $6::numeric, $7::numeric, $8::numeric, $9::numeric, $10::numeric, $11::text, $12::integer\nFROM monitor\nRETURNING id, dispositivo_id, ubicacion_id, fecha_hora`;\nmsg.params = [disp.id, disp.ubicacion_id, msg.llegada, l.ts, latencia, l.temperatura, l.humedad, l.presion,\n    l.mq135_v, rsR0, nivel, l.uptime, l.rssi, l.fw];\nreturn msg;",
+        "func": "const disp = msg.payload[0];\nif (!disp) {\n    node.warn(`Monitor no registrado: ${msg.mac}`);\n    return null;\n}\nif (disp.estado !== 'en_uso') {\n    node.warn(`Monitor ${msg.mac} en estado ${disp.estado}: no se guardan sus lecturas`);\n    return null;\n}\nif (disp.ubicacion_id === null) {\n    node.warn(`Monitor ${msg.mac} en uso sin ubicación asignada`);\n    return null;\n}\nif (disp.cliente_id !== disp.cliente_ubicacion) {\n    node.warn(`La ubicación ${disp.ubicacion_id} no pertenece al cliente del monitor ${msg.mac}`);\n    return null;\n}\nconst l = msg.lectura;\nconst latencia = l.ts !== null && Math.abs(msg.llegada - l.ts) <= 10000 ? msg.llegada - l.ts : null;\nconst RL_EF = (1 * 30) / (1 + 30);\nconst R0_POR_DEFECTO = 10.7;\nconst r0 = disp.mq135_r0_kohm === null ? R0_POR_DEFECTO : Number(disp.mq135_r0_kohm);\nlet rsR0 = null;\nlet nivel = null;\nif (l.mq135_v !== null && l.mq135_v < 5 && r0 > 0) {\n    const razon = Math.round(((RL_EF * (5 - l.mq135_v)) / l.mq135_v / r0) * 1000) / 1000;\n    if (razon <= 999.999) {\n        rsR0 = razon;\n        nivel = razon >= 0.8 ? 'bueno' : razon >= 0.5 ? 'moderado' : 'malo';\n    } else {\n        node.warn(`Rs/R0 de ${msg.mac} fuera de rango (${razon}): revisar el R0 del monitor`);\n    }\n}\nmsg.calculado = { latencia, rsR0, nivel };\nmsg.query = `WITH previo AS (\n  SELECT ultimo_uptime_s, ultima_lectura_en FROM dispositivos WHERE id = $1\n), monitor AS (\n  UPDATE dispositivos\n  SET ultima_lectura_en = GREATEST(ultima_lectura_en, to_timestamp($3 / 1000.0)),\n      ultimo_rssi = CASE WHEN ultima_lectura_en > to_timestamp($3 / 1000.0) THEN ultimo_rssi\n        ELSE COALESCE($13::smallint, ultimo_rssi) END,\n      ultimo_uptime_s = CASE WHEN ultima_lectura_en > to_timestamp($3 / 1000.0) THEN ultimo_uptime_s\n        ELSE COALESCE($12::integer, ultimo_uptime_s) END,\n      fw = CASE WHEN ultima_lectura_en > to_timestamp($3 / 1000.0) THEN fw\n        ELSE COALESCE($14::text, fw) END\n  WHERE id = $1 AND estado = 'en_uso' AND ubicacion_id = $2\n  RETURNING id, ubicacion_id\n), reinicio AS (\n  INSERT INTO eventos_dispositivo (dispositivo_id, texto)\n  SELECT monitor.id, 'Reinicio del monitor'\n  FROM monitor, previo\n  WHERE $12::integer IS NOT NULL AND previo.ultimo_uptime_s IS NOT NULL AND $12::integer < previo.ultimo_uptime_s\n    AND (previo.ultima_lectura_en IS NULL OR to_timestamp($3 / 1000.0) >= previo.ultima_lectura_en)\n)\nINSERT INTO lecturas (dispositivo_id, ubicacion_id, fecha_hora, ts_dispositivo, latencia_ms,\n  temperatura, humedad, presion, mq135_v, rs_r0, nivel_aire, uptime_s)\nSELECT id, ubicacion_id, to_timestamp($3 / 1000.0), to_timestamp($4 / 1000.0), $5::integer,\n  $6::numeric, $7::numeric, $8::numeric, $9::numeric, $10::numeric, $11::text, $12::integer\nFROM monitor\nRETURNING id, dispositivo_id, ubicacion_id, fecha_hora`;\nmsg.params = [disp.id, disp.ubicacion_id, msg.llegada, l.ts, latencia, l.temperatura, l.humedad, l.presion,\n    l.mq135_v, rsR0, nivel, l.uptime, l.rssi, l.fw];\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -315,6 +315,122 @@
         "z": "5e5104a1c0de0001",
         "x": 1140,
         "y": 80,
+        "wires": [],
+        "name": "",
+        "statusCode": "",
+        "headers": {}
+    },
+    {
+        "id": "c0e1ca0000000001",
+        "type": "http in",
+        "z": "5e5104a1c0de0001",
+        "x": 140,
+        "y": 800,
+        "wires": [
+            [
+                "c0e1ca0000000002"
+            ]
+        ],
+        "name": "",
+        "url": "/api/cuenta",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": ""
+    },
+    {
+        "id": "c0e1ca0000000002",
+        "type": "link call",
+        "z": "5e5104a1c0de0001",
+        "x": 340,
+        "y": 800,
+        "wires": [
+            [
+                "c0e1ca0000000003"
+            ]
+        ],
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30"
+    },
+    {
+        "id": "c0e1ca0000000003",
+        "type": "function",
+        "z": "5e5104a1c0de0001",
+        "x": 540,
+        "y": 800,
+        "wires": [
+            [
+                "c0e1ca0000000004"
+            ],
+            [
+                "c0e1ca0000000006"
+            ]
+        ],
+        "name": "Preparar cuenta",
+        "func": "if (!msg.sesion) return [null, msg];\nmsg.query = `SELECT u.id, u.nombre, u.debe_cambiar_clave, u.activo, r.nombre AS rol,\n  c.nombre AS organizacion, c.suspendido_en,\n  (SELECT count(*) FROM dispositivos d WHERE d.cliente_id = c.id AND d.estado = 'en_uso')::int AS monitores,\n  (SELECT count(*) FROM dispositivos d WHERE d.cliente_id = c.id AND d.estado = 'reservado')::int AS reservados\nFROM usuarios u\nJOIN roles r ON r.id = u.rol_id\nLEFT JOIN clientes c ON c.id = u.cliente_id\nWHERE u.id = $1`;\nmsg.params = [msg.sesion.sub];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": []
+    },
+    {
+        "id": "c0e1ca0000000004",
+        "type": "postgresql",
+        "z": "5e5104a1c0de0001",
+        "x": 740,
+        "y": 800,
+        "wires": [
+            [
+                "c0e1ca0000000005"
+            ]
+        ],
+        "name": "Cuenta",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1
+    },
+    {
+        "id": "c0e1ca0000000005",
+        "type": "function",
+        "z": "5e5104a1c0de0001",
+        "x": 940,
+        "y": 800,
+        "wires": [
+            [
+                "c0e1ca0000000006"
+            ]
+        ],
+        "name": "Responder cuenta",
+        "func": "const u = msg.payload[0];\ndelete msg.query;\ndelete msg.params;\nif (!u || !u.activo) {\n    msg.statusCode = 401;\n    msg.payload = { mensaje: 'Inicia sesión de nuevo.' };\n    return msg;\n}\nif (u.suspendido_en) {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'Tu cuenta está suspendida. Comunícate con tu proveedor.' };\n    return msg;\n}\nmsg.payload = {\n    id: u.id,\n    nombre: u.nombre,\n    organizacion: u.organizacion ?? 'TeleMon',\n    rol: u.rol === 'admin_plataforma' ? 'admin' : 'cliente',\n    debeCambiarClave: u.debe_cambiar_clave,\n    monitores: u.monitores ?? 0,\n    monitoresReservados: u.reservados ?? 0,\n};\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [
+            {
+                "var": "bcrypt",
+                "module": "bcryptjs"
+            },
+            {
+                "var": "jwt",
+                "module": "jsonwebtoken"
+            }
+        ]
+    },
+    {
+        "id": "c0e1ca0000000006",
+        "type": "http response",
+        "z": "5e5104a1c0de0001",
+        "x": 1140,
+        "y": 800,
         "wires": [],
         "name": "",
         "statusCode": "",
@@ -1658,7 +1774,7 @@
         "type": "function",
         "z": "1a7e0d15c0de0001",
         "name": "Responder ficha",
-        "func": "const m = msg.monitor;\nconst t = msg.payload[0];\nconst enLinea = m.conexion === 'en_linea';\nconst sensor = (nombre, rol, valor) => ({\n    nombre,\n    rol,\n    estado: !enLinea || valor === null ? 'sin_datos' : 'responde',\n});\nconst mq135 = sensor('MQ-135', 'Calidad del aire', t.mq135_v);\nif (mq135.estado === 'responde' && m.r0 === null) mq135.estado = 'sin_calibrar';\nmsg.statusCode = 200;\nmsg.headers = { 'Cache-Control': 'no-store' };\nmsg.payload = {\n    ...m,\n    tecnico: {\n        latenciaMs: enLinea ? t.latencia_ms : null,\n        ntp: enLinea && t.ntp,\n        rssi: enLinea ? t.ultimo_rssi : null,\n        fw: t.fw,\n    },\n    sensores: [\n        sensor('DS18B20', 'Temperatura', t.temperatura),\n        sensor('DHT11', 'Humedad', t.humedad),\n        sensor('BMP280', 'Presión', t.presion),\n        mq135,\n    ],\n    eventos: t.eventos.map((e) => ({ fecha: new Date(e.fecha).toISOString(), texto: e.texto })),\n};\ndelete msg.monitor;\ndelete msg.query;\ndelete msg.params;\nreturn msg;",
+        "func": "const m = msg.monitor;\nconst t = msg.payload[0];\nconst enLinea = m.conexion === 'en_linea';\nconst sensor = (nombre, rol, valor) => ({\n    nombre,\n    rol,\n    estado: !enLinea || valor === null ? 'sin_datos' : 'responde',\n});\nconst mq135 = sensor('MQ-135', 'Calidad del aire', t.mq135_v);\nmsg.statusCode = 200;\nmsg.headers = { 'Cache-Control': 'no-store' };\nmsg.payload = {\n    ...m,\n    tecnico: {\n        latenciaMs: enLinea ? t.latencia_ms : null,\n        ntp: enLinea && t.ntp,\n        rssi: enLinea ? t.ultimo_rssi : null,\n        fw: t.fw,\n    },\n    sensores: [\n        sensor('DS18B20', 'Temperatura', t.temperatura),\n        sensor('DHT11', 'Humedad', t.humedad),\n        sensor('BMP280', 'Presión', t.presion),\n        mq135,\n    ],\n    eventos: t.eventos.map((e) => ({ fecha: new Date(e.fecha).toISOString(), texto: e.texto })),\n};\ndelete msg.monitor;\ndelete msg.query;\ndelete msg.params;\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,

@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import { MODO_DEMO, api } from '../../api/cliente';
 import Boton from '../../componentes/ui/Boton';
 import { useSesion } from '../../sesion/useSesion';
 import estilos from './Bienvenida.module.css';
@@ -10,8 +12,29 @@ const PASOS = [
 ];
 
 export default function Bienvenida() {
-  const { usuario } = useSesion();
+  const { usuario, actualizar } = useSesion();
   const reservados = usuario?.monitoresReservados ?? 0;
+
+  useEffect(() => {
+    if (MODO_DEMO) return undefined;
+    let activo = true;
+    const consultar = () => {
+      api
+        .get('/api/cuenta')
+        .then((cuenta) => {
+          if (activo && cuenta) actualizar(cuenta);
+        })
+        .catch(() => {});
+    };
+    consultar();
+    const temporizador = setInterval(consultar, 15000);
+    window.addEventListener('focus', consultar);
+    return () => {
+      activo = false;
+      clearInterval(temporizador);
+      window.removeEventListener('focus', consultar);
+    };
+  }, [actualizar]);
 
   return (
     <>

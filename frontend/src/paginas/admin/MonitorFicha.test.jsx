@@ -17,24 +17,19 @@ describe('MonitorFicha', () => {
   it('muestra el estado técnico, los sensores y el historial', async () => {
     await abrir(1);
     expect(screen.getByRole('heading', { name: 'F8:B3:B7:2B:FC:24' })).toBeInTheDocument();
-    expect(screen.getByText('84 ms')).toBeInTheDocument();
+    expect(screen.queryByText('84 ms')).not.toBeInTheDocument();
+    expect(screen.queryByText('Firmware')).not.toBeInTheDocument();
     expect(screen.getByText('−58 dBm · buena')).toBeInTheDocument();
     expect(screen.getByText('DS18B20').closest('li')).toHaveTextContent('Responde');
     expect(screen.getByText('Activado por el cliente como «Aula 3»')).toBeInTheDocument();
     expect(screen.getByText(/Está en uso/)).toBeInTheDocument();
   });
 
-  it('rechaza un R0 inválido y guarda uno correcto', async () => {
+  it('no muestra la calibración ni las notas', async () => {
     await abrir(2);
-    const r0 = screen.getByLabelText('R0 (kΩ)');
-    await userEvent.type(r0, '0');
-    await userEvent.click(screen.getByRole('button', { name: 'Guardar R0' }));
-    expect(screen.getByRole('alert')).toHaveTextContent('mayor que 0');
-    await userEvent.clear(r0);
-    await userEvent.type(r0, '40,5');
-    await userEvent.click(screen.getByRole('button', { name: 'Guardar R0' }));
-    expect(await screen.findByText(/R0 guardado/)).toBeInTheDocument();
-    expect(await screen.findByText('R0 del MQ-135 cargado: 40.5 kΩ')).toBeInTheDocument();
+    expect(screen.queryByText('Calibración del MQ-135')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('R0 (kΩ)')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Notas' })).not.toBeInTheDocument();
   });
 
   it('reserva un monitor disponible para un cliente', async () => {

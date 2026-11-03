@@ -8,14 +8,12 @@ import Campo from '../../componentes/ui/Campo';
 import Estado from '../../componentes/ui/Estado';
 import useApi from '../../hooks/useApi';
 import { fechaHora, haceCuanto } from '../../utils/formato';
-import { r0Valido } from '../../utils/validacion';
 import { ESTADOS_MONITOR } from './monitor';
 import estilos from './MonitorFicha.module.css';
 
 const SENSOR = {
   responde: { tipo: 'ok', texto: 'Responde' },
   sin_datos: { tipo: 'apagado', texto: 'Sin datos' },
-  sin_calibrar: { tipo: 'aviso', texto: 'Sin calibrar' },
 };
 
 const CICLO = {
@@ -50,107 +48,6 @@ function conexion(m) {
     };
   }
   return { tipo: 'sinMarca', texto: 'Nunca se conectó', detalle: 'Sin lecturas' };
-}
-
-function Calibracion({ monitor, alGuardar }) {
-  const [r0, setR0] = useState(monitor.r0 == null ? '' : String(monitor.r0));
-  const [error, setError] = useState('');
-  const [mensaje, setMensaje] = useState('');
-
-  async function guardar() {
-    if (!r0Valido(r0)) {
-      setError('Escribe un valor en kΩ mayor que 0, por ejemplo 41.2.');
-      setMensaje('');
-      return;
-    }
-    const valor = parseFloat(r0.replace(',', '.'));
-    try {
-      await alGuardar({ r0: valor });
-      setR0(String(valor));
-      setError('');
-      setMensaje('R0 guardado. Desde la próxima lectura se calcula el nivel de aire.');
-    } catch (e) {
-      setError(e.message || 'No se pudo guardar el R0.');
-    }
-  }
-
-  return (
-    <section className={estilos.tarjeta}>
-      <div>
-        <h2 className={estilos.subtituloConTexto}>Calibración del MQ-135</h2>
-        <p className={estilos.textoSuave}>
-          R0 es el promedio de Rs en aire limpio, tras 24 a 48 h de quemado. Con R0 cargado, el
-          cliente ve el nivel de calidad del aire.
-        </p>
-      </div>
-      <div className={estilos.fila}>
-        <Campo
-          etiqueta="R0 (kΩ)"
-          className={estilos.campoR0}
-          mono
-          inputMode="decimal"
-          placeholder="Sin calibrar"
-          value={r0}
-          invalido={Boolean(error)}
-          onChange={(e) => {
-            setR0(e.target.value);
-            setError('');
-            setMensaje('');
-          }}
-        />
-        <Boton variante="primario" tamano="grande" className={estilos.botonFila} onClick={guardar}>
-          Guardar R0
-        </Boton>
-      </div>
-      {error && (
-        <span role="alert" className={estilos.error}>
-          {error}
-        </span>
-      )}
-      {mensaje && (
-        <span role="status" className={estilos.mensaje}>
-          {mensaje}
-        </span>
-      )}
-    </section>
-  );
-}
-
-function Notas({ monitor, alGuardar }) {
-  const [notas, setNotas] = useState(monitor.notas ?? '');
-  const [mensaje, setMensaje] = useState('');
-  return (
-    <section className={estilos.tarjeta}>
-      <h2 className={estilos.subtitulo}>Notas</h2>
-      <div className={estilos.fila}>
-        <Campo
-          etiqueta="Nota interna"
-          className={estilos.campoNota}
-          placeholder="Ej.: antena externa instalada"
-          value={notas}
-          onChange={(e) => {
-            setNotas(e.target.value);
-            setMensaje('');
-          }}
-        />
-        <Boton
-          tamano="grande"
-          className={`${estilos.botonFila} ${estilos.botonNota}`}
-          onClick={async () => {
-            await alGuardar({ notas: notas.trim() });
-            setMensaje('Nota guardada');
-          }}
-        >
-          Guardar nota
-        </Boton>
-      </div>
-      {mensaje && (
-        <span role="status" className={estilos.mensaje}>
-          {mensaje}
-        </span>
-      )}
-    </section>
-  );
 }
 
 function CicloDeVida({ monitor, clientes, alReservar, alLiberar, alRetirar }) {
@@ -332,22 +229,8 @@ export default function MonitorFicha() {
                     <dd className={estilos.detalle}>{con.detalle}</dd>
                   </div>
                   <div>
-                    <dt>Latencia</dt>
-                    <dd className="mono">
-                      {m.tecnico.latenciaMs == null ? '—' : `${m.tecnico.latenciaMs} ms`}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Hora (NTP)</dt>
-                    <dd>{m.tecnico.ntp ? 'Sincronizada' : '—'}</dd>
-                  </div>
-                  <div>
                     <dt>Señal Wi-Fi</dt>
                     <dd>{senal(m.tecnico.rssi)}</dd>
-                  </div>
-                  <div>
-                    <dt>Firmware</dt>
-                    <dd className="mono">{m.tecnico.fw ?? '—'}</dd>
                   </div>
                 </dl>
               </section>
@@ -366,9 +249,6 @@ export default function MonitorFicha() {
                   ))}
                 </ul>
               </section>
-
-              <Calibracion key={`r0-${m.id}`} monitor={m} alGuardar={actualizar} />
-              <Notas key={`notas-${m.id}`} monitor={m} alGuardar={actualizar} />
 
               <section className={estilos.tarjetaLista}>
                 <h2 className={estilos.subtituloLista}>Historial del monitor</h2>

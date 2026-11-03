@@ -1,7 +1,25 @@
 import { screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { api } from '../../api/cliente';
 import { dibujar } from '../../test/dibujar';
 import Bienvenida from './Bienvenida';
+
+const modo = vi.hoisted(() => ({ demo: true }));
+
+vi.mock('../../api/cliente', async (original) => {
+  const real = await original();
+  return {
+    ...real,
+    get MODO_DEMO() {
+      return modo.demo;
+    },
+  };
+});
+
+afterEach(() => {
+  modo.demo = true;
+  vi.restoreAllMocks();
+});
 
 describe('Bienvenida', () => {
   it('sin monitores explica los cuatro pasos', () => {
@@ -24,5 +42,20 @@ describe('Bienvenida', () => {
       'href',
       '/ubicaciones',
     );
+  });
+
+  it('se actualiza sola cuando el proveedor reserva un monitor', async () => {
+    modo.demo = false;
+    vi.spyOn(api, 'get').mockResolvedValue({
+      nombre: 'Luis',
+      rol: 'cliente',
+      monitores: 0,
+      monitoresReservados: 1,
+    });
+    dibujar(<Bienvenida />, {
+      usuario: { nombre: 'Luis', rol: 'cliente', monitores: 0, monitoresReservados: 0 },
+    });
+    expect(await screen.findByText('Tienes 1 monitor listo para activar')).toBeInTheDocument();
+    expect(api.get).toHaveBeenCalledWith('/api/cuenta');
   });
 });
