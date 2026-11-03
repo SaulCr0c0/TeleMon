@@ -52,7 +52,14 @@ describe('Umbrales', () => {
       within(screen.getByLabelText('Esperar'))
         .getAllByRole('option')
         .map((opcion) => opcion.textContent),
-    ).toEqual(['30 segundos', '1 minuto', '2 minutos', '5 minutos']);
+    ).toEqual([
+      'Inmediatamente',
+      '10 segundos',
+      '30 segundos',
+      '1 minuto',
+      '2 minutos',
+      '5 minutos',
+    ]);
     expect(screen.getByText(/Última modificación: Ana Rojas/)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Volver al Panel/ })).toHaveAttribute(
       'href',

@@ -9,6 +9,7 @@ Scripts de PostgreSQL 17. Se montan en `/docker-entrypoint-initdb.d`, así que *
 | `03_agregacion.sql` | Funciones `agregar_lecturas_minuto()` y `limpiar_lecturas(dias)` (#45) y el índice `(ubicacion_id, minuto)` de `lecturas_minuto` para el historial (#71). Node-RED las llama solas (pestaña «Base de datos»). Si la base ya existe, cargarlo a mano: `docker exec -i postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < database/03_agregacion.sql` (se puede repetir: reemplaza las funciones) |
 | `04_usuarios.sql` | Usuarios iniciales con la clave en bcrypt: `admin@telemon.bo` / `admin1234` (admin) y `direccion@redvallealto.edu.bo` / `telemon123` (cliente 1). Si la base ya existe, cargarlo a mano: `docker exec -i postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < database/04_usuarios.sql` (se puede repetir: no duplica) |
 | `05_espera_30s.sql` | Permite 30 s como espera de «Sin conexión» (además de 1, 2 y 5 min). Si la base ya existe, cargarlo a mano: `docker exec -i postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < database/05_espera_30s.sql` (se puede repetir) |
+| `06_espera_inmediata.sql` | Agrega «Inmediatamente» (8 s: una lectura perdida más el retraso de la red) y 10 s a la espera de «Sin conexión». Si la base ya existe, cargarlo a mano: `docker exec -i postgres sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"' < database/06_espera_inmediata.sql` (se puede repetir) |
 
 ### Agregación por minuto y limpieza (#45)
 
