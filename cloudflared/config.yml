@@ -1,0 +1,6 @@
+ingress:
+  - hostname: telemon.site
+    service: http://proxy_web:80
+  - hostname: www.telemon.site
+    service: http://proxy_web:80
+  - service: http_status:404

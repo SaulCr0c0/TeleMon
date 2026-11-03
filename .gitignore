@@ -34,3 +34,5 @@ frontend/.env.local
 frontend/coverage/
 frontend/test-results/
 frontend/playwright-report/
+cloudflared/*.json
+cloudflared/*.pem
