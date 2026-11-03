@@ -1,6 +1,6 @@
 # nginx
 
-Configuración de Nginx como servidor del dashboard y proxy inverso HTTP/WebSocket hacia Node-RED, con HTTPS para `telematicos2026.online`.
+Configuración de Nginx como servidor del dashboard y proxy inverso HTTP/WebSocket hacia Node-RED, con HTTPS para `telemon.site` (el HTTPS lo pone Cloudflare: ver `cloudflared/README.md`).
 
 ## Servicio `proxy_web` (#39)
 

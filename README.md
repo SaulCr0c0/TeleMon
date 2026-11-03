@@ -11,7 +11,7 @@ telemático y ambiental en tiempo real mediante sensores IoT y protocolos telem�
 Un nodo **ESP32** mide temperatura, humedad, presión y calidad del aire, y publica las
 lecturas por **MQTT**. Un backend en **Node-RED** las valida, las guarda en **PostgreSQL** y
 las envía en tiempo real a un **dashboard web** servido por **Nginx**, accesible en
-`telematicos2026.online`. Todo el backend corre en contenedores **Docker**.
+`telemon.site`. Todo el backend corre en contenedores **Docker**.
 
 ```
 Sensores ─► ESP32 ─► Broker MQTT ─► Node-RED ─┬─► PostgreSQL (historial)
