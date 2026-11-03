@@ -2704,6 +2704,195 @@
         ]
     },
     {
+        "id": "67ac71bac10de101",
+        "type": "http in",
+        "z": "67ac71bac10de001",
+        "name": "",
+        "url": "/api/dispositivos/:id",
+        "method": "patch",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 200,
+        "y": 440,
+        "wires": [
+            [
+                "67ac71bac10de102"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de102",
+        "type": "link call",
+        "z": "67ac71bac10de001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 410,
+        "y": 440,
+        "wires": [
+            [
+                "67ac71bac10de103"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de103",
+        "type": "function",
+        "z": "67ac71bac10de001",
+        "name": "Validar cambios del nodo",
+        "func": "if (!msg.sesion) return [null, msg];\nmsg.headers = { 'Cache-Control': 'no-store' };\nconst negar = (estado, mensaje) => {\n    msg.statusCode = estado;\n    msg.payload = { mensaje };\n    return [null, msg];\n};\nconst entero = (valor) => Number.isInteger(valor) && valor > 0 && valor <= 2147483647;\nconst { cliente, sub, rol } = msg.sesion;\nif (rol !== 'cliente' || !entero(cliente)) return negar(403, 'No tienes permiso.');\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) ? Number(texto) : null;\nif (!entero(id)) return negar(400, 'Nodo no válido.');\nconst cuerpo = msg.payload;\nif (!cuerpo || typeof cuerpo !== 'object' || Array.isArray(cuerpo) || Buffer.isBuffer(cuerpo)) {\n    return negar(400, 'Envía un objeto JSON con los cambios del nodo.');\n}\nconst campos = Object.keys(cuerpo);\nif (campos.length === 0) return negar(400, 'No hay cambios que guardar.');\nif (campos.some((campo) => !['nombre', 'estado', 'ubicacionId'].includes(campo))) {\n    return negar(400, 'La petición contiene campos no permitidos.');\n}\nconst cambios = {};\nif ('nombre' in cuerpo) {\n    if (typeof cuerpo.nombre !== 'string' || !cuerpo.nombre.trim()) return negar(400, 'Escribe el nombre del nodo.');\n    if (cuerpo.nombre.trim().length > 60) return negar(400, 'El nombre puede tener hasta 60 caracteres.');\n    cambios.nombre = cuerpo.nombre.trim();\n}\nif ('estado' in cuerpo) {\n    if (!['en_uso', 'desactivado'].includes(cuerpo.estado)) return negar(400, 'Estado no válido.');\n    cambios.estado = cuerpo.estado;\n}\nif ('ubicacionId' in cuerpo) {\n    if (!entero(cuerpo.ubicacionId)) return negar(400, 'Ubicación no válida.');\n    cambios.ubicacionId = cuerpo.ubicacionId;\n}\nmsg.nodo = { id, cliente, usuario: entero(sub) ? sub : null, cambios };\nmsg.query = `SELECT d.id, d.nombre, d.estado, d.ubicacion_id, u.nombre AS ubicacion,\n  (SELECT row_to_json(x) FROM (\n    SELECT id, nombre, archivada FROM ubicaciones WHERE id = $3 AND cliente_id = $2\n  ) x) AS destino\nFROM dispositivos d\nLEFT JOIN ubicaciones u ON u.id = d.ubicacion_id\nWHERE d.id = $1 AND d.cliente_id = $2`;\nmsg.params = [id, cliente, cambios.ubicacionId ?? null];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 440,
+        "wires": [
+            [
+                "67ac71bac10de104"
+            ],
+            [
+                "67ac71bac10de108"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de104",
+        "type": "postgresql",
+        "z": "67ac71bac10de001",
+        "name": "Nodo y destino",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 830,
+        "y": 440,
+        "wires": [
+            [
+                "67ac71bac10de105"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de105",
+        "type": "function",
+        "z": "67ac71bac10de001",
+        "name": "Preparar cambios del nodo",
+        "func": "const d = msg.payload[0];\nconst { id, cliente, usuario, cambios } = msg.nodo;\nconst negar = (estado, mensaje) => {\n    msg.statusCode = estado;\n    msg.payload = { mensaje };\n    delete msg.nodo;\n    return [null, msg];\n};\nif (!d) return negar(403, 'No tienes permiso.');\nif (!['en_uso', 'desactivado'].includes(d.estado)) return negar(409, 'Este nodo no está activo en tu cuenta.');\nconst eventos = [];\nlet nombre = null;\nlet estado = null;\nlet ubicacion = null;\nlet motivo = null;\nif (cambios.nombre !== undefined && cambios.nombre !== d.nombre) {\n    nombre = cambios.nombre;\n    eventos.push(`Renombrado de «${d.nombre}» a «${nombre}»`);\n}\nif (cambios.ubicacionId !== undefined && cambios.ubicacionId !== d.ubicacion_id) {\n    if (!d.destino) return negar(403, 'No tienes permiso.');\n    if (d.destino.archivada) return negar(409, 'No se puede mover a una ubicación archivada.');\n    ubicacion = cambios.ubicacionId;\n    motivo = 'nodo movido';\n    eventos.push(`Movido de «${d.ubicacion}» a «${d.destino.nombre}»`);\n}\nif (cambios.estado !== undefined && cambios.estado !== d.estado) {\n    estado = cambios.estado;\n    if (estado === 'desactivado') {\n        motivo = 'nodo desactivado';\n        eventos.push('Desactivado por el cliente');\n    } else {\n        eventos.push('Reactivado por el cliente');\n    }\n}\nmsg.query = `WITH cambio AS (\n  UPDATE dispositivos\n  SET nombre = COALESCE($3, nombre), estado = COALESCE($4, estado), ubicacion_id = COALESCE($5, ubicacion_id)\n  WHERE id = $1 AND cliente_id = $2 AND estado IN ('en_uso', 'desactivado')\n    AND ($5::integer IS NULL OR EXISTS (\n      SELECT 1 FROM ubicaciones WHERE id = $5 AND cliente_id = $2 AND NOT archivada\n    ))\n  RETURNING id, ubicacion_id, nombre, estado\n), cerradas AS (\n  UPDATE alertas SET cerrada_en = now(), motivo_cierre = $7\n  WHERE dispositivo_id = $1 AND cerrada_en IS NULL AND $7::text IS NOT NULL AND EXISTS (SELECT 1 FROM cambio)\n  RETURNING id\n), eventos AS (\n  INSERT INTO eventos_dispositivo (dispositivo_id, texto, usuario_id)\n  SELECT cambio.id, t.texto, $6 FROM cambio, unnest($8::text[]) WITH ORDINALITY AS t (texto, orden)\n  ORDER BY t.orden\n)\nSELECT cambio.*, (SELECT count(*) FROM cerradas)::int AS alertas_cerradas FROM cambio`;\nmsg.params = [id, cliente, nombre, estado, ubicacion, usuario, motivo, eventos];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1040,
+        "y": 440,
+        "wires": [
+            [
+                "67ac71bac10de106"
+            ],
+            [
+                "67ac71bac10de108"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de106",
+        "type": "postgresql",
+        "z": "67ac71bac10de001",
+        "name": "Guardar cambios del nodo",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 1260,
+        "y": 440,
+        "wires": [
+            [
+                "67ac71bac10de107"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de107",
+        "type": "function",
+        "z": "67ac71bac10de001",
+        "name": "Responder nodo",
+        "func": "delete msg.nodo;\nconst n = msg.payload[0];\nif (!n) {\n    msg.statusCode = 409;\n    msg.payload = { mensaje: 'El nodo cambió de estado. Vuelve a cargar la página.' };\n    return msg;\n}\nmsg.statusCode = 200;\nmsg.payload = { id: n.id, ubicacionId: n.ubicacion_id, nombre: n.nombre, estado: n.estado };\ndelete msg.query;\ndelete msg.params;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1460,
+        "y": 440,
+        "wires": [
+            [
+                "67ac71bac10de108"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de108",
+        "type": "http response",
+        "z": "67ac71bac10de001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1640,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "67ac71bac10de109",
+        "type": "catch",
+        "z": "67ac71bac10de001",
+        "name": "Errores al cambiar nodos",
+        "scope": [
+            "67ac71bac10de103",
+            "67ac71bac10de104",
+            "67ac71bac10de105",
+            "67ac71bac10de106",
+            "67ac71bac10de107"
+        ],
+        "uncaught": false,
+        "x": 210,
+        "y": 520,
+        "wires": [
+            [
+                "67ac71bac10de10a"
+            ]
+        ]
+    },
+    {
+        "id": "67ac71bac10de10a",
+        "type": "function",
+        "z": "67ac71bac10de001",
+        "name": "Responder error",
+        "func": "delete msg.nodo;\nnode.error(`Nodos: ${msg.error?.source?.name || 'API'}: ${msg.error?.message || 'Error inesperado'}`);\nmsg.statusCode = 500;\nmsg.headers = { 'Cache-Control': 'no-store' };\nmsg.payload = { mensaje: 'No se pudieron guardar los cambios del nodo. Intenta de nuevo.' };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 520,
+        "wires": [
+            [
+                "67ac71bac10de108"
+            ]
+        ]
+    },
+    {
         "id": "c11e7e5ac0de0001",
         "type": "tab",
         "label": "Clientes",
