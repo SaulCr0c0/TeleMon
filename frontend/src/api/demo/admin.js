@@ -149,7 +149,7 @@ export default [
           {
             nombre: 'MQ-135',
             rol: 'Calidad del aire',
-            estado: m.conexion !== 'en_linea' ? 'sin_datos' : m.r0 ? 'responde' : 'sin_calibrar',
+            estado: m.conexion !== 'en_linea' ? 'sin_datos' : 'responde',
           },
         ],
         eventos: EVENTOS_MONITOR[m.id] ?? [],

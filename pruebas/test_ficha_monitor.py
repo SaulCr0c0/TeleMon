@@ -53,7 +53,7 @@ INSERT INTO lecturas (dispositivo_id, ubicacion_id, fecha_hora, ts_dispositivo, 
         self.assertEqual(m["tecnico"], {"latenciaMs": 84, "ntp": True, "rssi": -58, "fw": "1.1.0"})
         self.assertEqual([(s["nombre"], s["estado"]) for s in m["sensores"]],
                          [("DS18B20", "responde"), ("DHT11", "sin_datos"), ("BMP280", "responde"),
-                          ("MQ-135", "sin_calibrar")])
+                          ("MQ-135", "responde")])
         self.assertEqual([e["texto"] for e in m["eventos"]],
                          ["Activado por el cliente como «Aula 3»", "Reservado para Red Escolar Valle Alto",
                           "Registrado con el código H7QD-4MXA"])

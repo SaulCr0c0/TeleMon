@@ -41,7 +41,7 @@ El resto de `data/` lo genera Node-RED y no se sube. Si se cambia el flujo en el
 
 1. **Validar trama.** Toma la hora de llegada antes de consultar la base. Exige el tema `telemetria/<ID>/lecturas` con un ID de 12 caracteres hexadecimales en mayúsculas, un objeto JSON y una MAC que, en mayúsculas y sin `:`, sea igual al ID del tema.
 2. **Buscar monitor** por su MAC.
-3. **Calcular aire y tiempos.** Solo sigue si el monitor está `en_uso`, tiene ubicación y esa ubicación es de su mismo cliente. Calcula la latencia y Rs/R0.
+3. **Calcular aire y tiempos.** Solo sigue si el monitor está `en_uso`, tiene ubicación y esa ubicación es de su mismo cliente. Calcula la latencia y Rs/R0. Si el monitor no tiene R0 cargado usa `R0_POR_DEFECTO` (10.7 kΩ, medido el 03/11/2026 con el MQ-135 del primer monitor), así que la calidad del aire siempre tiene nivel.
 4. **Guardar lectura.** Una sola sentencia actualiza el monitor (última lectura, RSSI, uptime y firmware) e inserta la lectura, y solo si el monitor sigue `en_uso` en esa ubicación. Si algo falla no se guarda nada y no sale ningún evento. Un mensaje más viejo no hace retroceder los datos del monitor, y un RSSI, uptime o firmware nulo no borra el último conocido.
    **Reinicios (#76):** en esa misma sentencia, si el `uptime` que llega es menor que el último guardado del monitor (y la lectura no es más vieja que la última), se anota «Reinicio del monitor» en `eventos_dispositivo`, sin usuario. Aparece en el historial de la ficha del monitor. No es una alerta. La primera lectura o un `uptime` nulo no cuentan. El `uptime` del firmware sale de `millis()`, que vuelve a cero cada ~49 días: eso también se anota como reinicio.
 5. **Preparar evento.** Deja en `msg.payload` el aviso de la lectura guardada (`tipo`, `ubicacionId`, `dispositivoId`, `fecha`, las tres variables, `rsR0`, `nivelAire`) y lo pasa a «Lectura guardada». De ahí sale al WebSocket. El mismo mensaje entra también a las alertas (#69); la alerta sin conexión (#74) se conecta en el mismo punto.
@@ -201,6 +201,10 @@ Crea en una sola sentencia (una transacción) el cliente con `origen = 'registro
 
 Si dos registros con el mismo correo llegan a la vez, el índice único de `usuarios.email` rechaza el segundo, se revierte también su cliente y el «Responder error» de la sesión lo convierte en 409.
 
+### `GET /api/cuenta`
+
+Con el token de la sesión devuelve el mismo objeto `usuario` del login, leído en ese momento (`monitores` en uso y `monitoresReservados`). La pantalla de Bienvenida lo consulta cada 15 s y al volver a la pestaña, para que el cliente vea un monitor recién reservado sin cerrar sesión. Sin token o con uno inválido: 401; cuenta suspendida: 403.
+
 ### `POST /api/logout`
 
 Responde `{ ok: true }`. El token se borra en el navegador; no hay lista de tokens revocados, así que un token sigue valiendo hasta que vence (12 h).
@@ -281,7 +285,7 @@ Mismas reglas de sesión que el resto del inventario (401 sin sesión, 403 si no
 
 | Ruta | Qué hace |
 |---|---|
-| `GET /api/admin/dispositivos/:id` | El monitor (forma del inventario) con `tecnico` (`latenciaMs`, `ntp`, `rssi` de la última lectura si está en línea, y `fw`), `sensores` (DS18B20, DHT11, BMP280 y MQ-135: `responde`, `sin_datos` si no está en línea o el valor llegó nulo, y `sin_calibrar` para el MQ-135 sin R0) y `eventos` (`{ fecha, texto }`, del más nuevo al más viejo) |
+| `GET /api/admin/dispositivos/:id` | El monitor (forma del inventario) con `tecnico` (`latenciaMs`, `ntp`, `rssi` de la última lectura si está en línea, y `fw`), `sensores` (DS18B20, DHT11, BMP280 y MQ-135: `responde`, `sin_datos` si no está en línea o el valor llegó nulo, y `eventos` (`{ fecha, texto }`, del más nuevo al más viejo) |
 | `PATCH /api/admin/dispositivos/:id` con `{ r0?, notas? }` | `r0` en kΩ: número mayor que 0 y menor que 100000, redondeado a 3 decimales; si no, 400 `R0 debe ser un número mayor que 0.`. `notas`: texto de hasta 2000 caracteres. Anota «R0 del MQ-135 cargado: … kΩ» o «Notas actualizadas». No se mezcla con `clienteId` en el mismo pedido (400) |
 | `POST /api/admin/dispositivos/:id/liberar` | Solo si está `desactivado`: vuelve a `disponible` sin cliente, ubicación ni nombre, con un código nuevo. Anota «Liberado. Código nuevo …». Las lecturas se conservan |
 | `POST /api/admin/dispositivos/:id/retirar` | Desde `disponible`, `reservado` o `desactivado`: pasa a `retirado` sin cliente ni ubicación. Es definitivo: no se puede reservar, liberar ni activar. Anota «Retirado. Código anulado» |

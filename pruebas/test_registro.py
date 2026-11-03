@@ -46,6 +46,21 @@ class RegistroHTTP(EntornoHTTP):
         self.assertEqual(estado, 200)
         self.assertEqual(sesion["usuario"], usuario)
 
+    def test_cuenta_refleja_las_reservas_sin_volver_a_iniciar_sesion(self):
+        estado, datos, _ = self.registrar()
+        self.assertEqual(estado, 201)
+        token = datos["token"]
+        estado, cuenta, _ = self.pedir("GET", "/api/cuenta", autorizacion=token)
+        self.assertEqual(estado, 200)
+        self.assertEqual(cuenta, datos["usuario"])
+        cliente = datos["usuario"]["id"]
+        self.sql("INSERT INTO dispositivos (mac_address, codigo, cliente_id, estado) "
+                 f"SELECT 'AA:BB:CC:DD:EE:01', 'ABCD-2345', cliente_id, 'reservado' FROM usuarios WHERE id = {cliente};")
+        estado, cuenta, _ = self.pedir("GET", "/api/cuenta", autorizacion=token)
+        self.assertEqual((estado, cuenta["monitores"], cuenta["monitoresReservados"]), (200, 0, 1))
+        self.assertEqual(self.pedir("GET", "/api/cuenta", autorizacion=None)[0], 401)
+        self.assertEqual(self.pedir("GET", "/api/cuenta", autorizacion="token-falso")[0], 401)
+
     def test_correo_registrado_responde_409(self):
         for email in ("direccion@redvallealto.edu.bo", " DIRECCION@RedValleAlto.edu.bo "):
             with self.subTest(email=email):

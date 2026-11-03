@@ -28,6 +28,3 @@ export function rangoValido(min, max) {
   const b = parseFloat(max);
   return !Number.isNaN(a) && !Number.isNaN(b) && a < b;
 }
-
-export const r0Valido = (texto = '') =>
-  /^\d+([.,]\d+)?$/.test(String(texto).trim()) && parseFloat(String(texto).replace(',', '.')) > 0;

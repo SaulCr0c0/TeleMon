@@ -84,13 +84,6 @@
   letter-spacing: -0.01em;
 }
 
-.subtituloConTexto {
-  margin: 0 0 4px;
-  font-size: 18px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
-}
-
 .subtituloLista {
   padding: 20px 24px 8px;
   font-size: 18px;
@@ -172,29 +165,6 @@
 .eventoTexto {
   flex: 1 1 260px;
   min-width: 0;
-}
-
-.fila {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 12px;
-}
-
-.campoR0 {
-  flex: 0 1 220px;
-}
-
-.campoNota {
-  flex: 1 1 320px;
-}
-
-.botonFila {
-  font-size: 14px;
-}
-
-.botonNota {
-  font-weight: 500;
 }
 
 .asignacion {
