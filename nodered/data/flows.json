@@ -3987,5 +3987,464 @@
                 "9a7f1ca5c0de0007"
             ]
         ]
+    },
+    {
+        "id": "a7e2b1a5c0de0001",
+        "type": "tab",
+        "label": "Alertas y umbrales",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "a7e2b1a5c0de0002",
+        "type": "http in",
+        "z": "a7e2b1a5c0de0001",
+        "name": "",
+        "url": "/api/ubicaciones/:id/alertas",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 210,
+        "y": 80,
+        "wires": [
+            [
+                "a7e2b1a5c0de0003"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0003",
+        "type": "link call",
+        "z": "a7e2b1a5c0de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 440,
+        "y": 80,
+        "wires": [
+            [
+                "a7e2b1a5c0de0004"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0004",
+        "type": "function",
+        "z": "a7e2b1a5c0de0001",
+        "name": "Validar alertas",
+        "func": "if (!msg.sesion) return [null, msg];\nmsg.headers = { 'Cache-Control': 'no-store' };\nconst negar = (mensaje) => {\n    msg.statusCode = 400;\n    msg.payload = { mensaje };\n    return [null, msg];\n};\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) && Number(texto) <= 2147483647 ? Number(texto) : null;\nif (id === null) return negar('Ubicación no válida.');\nconst estado = msg.req.query.estado ?? 'abiertas';\nif (!['abiertas', 'cerradas'].includes(estado)) return negar('Estado no válido.');\nconst abiertas = estado === 'abiertas';\nmsg.query = `SELECT (SELECT count(*) FROM ubicaciones WHERE id = $1 AND cliente_id = $2)::int AS propia,\n  COALESCE((\n    SELECT json_agg(x ORDER BY x.orden DESC, x.id DESC)\n    FROM (\n      SELECT a.id, a.ubicacion_id, a.dispositivo_id, d.nombre AS nodo, a.tipo, a.variable, a.mensaje,\n        a.abierta_en, a.cerrada_en, a.peor_valor, ${abiertas ? 'a.abierta_en' : 'a.cerrada_en'} AS orden\n      FROM alertas a\n      JOIN dispositivos d ON d.id = a.dispositivo_id\n      WHERE a.ubicacion_id = $1 AND a.ubicacion_id IN (SELECT id FROM ubicaciones WHERE cliente_id = $2)\n        AND a.cerrada_en IS ${abiertas ? '' : 'NOT '}NULL\n      ORDER BY orden DESC, a.id DESC\n      LIMIT 500\n    ) x\n  ), '[]'::json) AS alertas`;\nmsg.params = [id, msg.sesion.cliente ?? null];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 630,
+        "y": 80,
+        "wires": [
+            [
+                "a7e2b1a5c0de0005"
+            ],
+            [
+                "a7e2b1a5c0de0007"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0005",
+        "type": "postgresql",
+        "z": "a7e2b1a5c0de0001",
+        "name": "Alertas de la ubicación",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 840,
+        "y": 80,
+        "wires": [
+            [
+                "a7e2b1a5c0de0006"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0006",
+        "type": "function",
+        "z": "a7e2b1a5c0de0001",
+        "name": "Responder alertas",
+        "func": "const r = msg.payload[0];\nif (!r.propia) {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return msg;\n}\nconst UNIDADES = { temperatura: ' °C', humedad: ' %', presion: ' hPa', calidad_aire: ' Rs/R0' };\nconst iso = (valor) => (valor === null ? null : new Date(valor).toISOString());\nmsg.statusCode = 200;\nmsg.payload = r.alertas.map((a) => ({\n    id: Number(a.id),\n    ubicacionId: a.ubicacion_id,\n    dispositivoId: a.dispositivo_id,\n    nodo: a.nodo,\n    tipo: a.tipo,\n    variable: a.variable,\n    mensaje: a.mensaje,\n    abiertaEn: iso(a.abierta_en),\n    cerradaEn: iso(a.cerrada_en),\n    peorValor: a.peor_valor === null ? null : `${Number(a.peor_valor)}${UNIDADES[a.variable] ?? ''}`,\n}));\ndelete msg.query;\ndelete msg.params;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1050,
+        "y": 80,
+        "wires": [
+            [
+                "a7e2b1a5c0de0007"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0007",
+        "type": "http response",
+        "z": "a7e2b1a5c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1240,
+        "y": 80,
+        "wires": []
+    },
+    {
+        "id": "a7e2b1a5c0de0010",
+        "type": "link in",
+        "z": "a7e2b1a5c0de0001",
+        "name": "consultar umbrales",
+        "links": [],
+        "x": 175,
+        "y": 200,
+        "wires": [
+            [
+                "a7e2b1a5c0de0011"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0011",
+        "type": "function",
+        "z": "a7e2b1a5c0de0001",
+        "name": "Armar consulta de umbrales",
+        "func": "msg.query = `SELECT u.id, u.espera_sin_conexion_s,\n  COALESCE(json_object_agg(x.variable, json_build_object('min', x.valor_min, 'max', x.valor_max, 'activo', x.activo))\n    FILTER (WHERE x.variable IS NOT NULL), '{}'::json) AS umbrales,\n  (SELECT us.nombre FROM umbrales y JOIN usuarios us ON us.id = y.actualizado_por\n    WHERE y.ubicacion_id = u.id ORDER BY y.actualizado_en DESC LIMIT 1) AS actualizado_por,\n  max(x.actualizado_en) AS actualizado_en\nFROM ubicaciones u\nLEFT JOIN umbrales x ON x.ubicacion_id = u.id\nWHERE u.id = $1 AND u.cliente_id = $2\nGROUP BY u.id`;\nmsg.params = [msg.umbrales.id, msg.umbrales.cliente];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 400,
+        "y": 200,
+        "wires": [
+            [
+                "a7e2b1a5c0de0012"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0012",
+        "type": "postgresql",
+        "z": "a7e2b1a5c0de0001",
+        "name": "Umbrales",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 610,
+        "y": 200,
+        "wires": [
+            [
+                "a7e2b1a5c0de0013"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0013",
+        "type": "function",
+        "z": "a7e2b1a5c0de0001",
+        "name": "Dar forma de umbrales",
+        "func": "const r = msg.payload[0];\ndelete msg.umbrales;\nif (!r) {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return msg;\n}\nconst numero = (valor) => (valor === null || valor === undefined ? null : Number(valor));\nconst rango = (variable) => {\n    const x = r.umbrales[variable];\n    return { min: numero(x?.min), max: numero(x?.max) };\n};\nconst aire = r.umbrales.calidad_aire;\nmsg.statusCode = 200;\nmsg.payload = {\n    temperatura: rango('temperatura'),\n    humedad: rango('humedad'),\n    presion: rango('presion'),\n    calidadAire: !aire || !aire.activo ? 'nunca' : Number(aire.min) >= 0.8 ? 'moderado' : 'malo',\n    esperaSinConexionS: r.espera_sin_conexion_s,\n    actualizadoPor: r.actualizado_por,\n    actualizadoEn: r.actualizado_en === null ? null : new Date(r.actualizado_en).toISOString(),\n};\ndelete msg.query;\ndelete msg.params;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 800,
+        "y": 200,
+        "wires": [
+            [
+                "a7e2b1a5c0de0014"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0014",
+        "type": "link out",
+        "z": "a7e2b1a5c0de0001",
+        "name": "volver",
+        "mode": "return",
+        "links": [],
+        "x": 975,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "a7e2b1a5c0de0020",
+        "type": "http in",
+        "z": "a7e2b1a5c0de0001",
+        "name": "",
+        "url": "/api/ubicaciones/:id/umbrales",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 210,
+        "y": 300,
+        "wires": [
+            [
+                "a7e2b1a5c0de0021"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0021",
+        "type": "link call",
+        "z": "a7e2b1a5c0de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 440,
+        "y": 300,
+        "wires": [
+            [
+                "a7e2b1a5c0de0022"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0022",
+        "type": "function",
+        "z": "a7e2b1a5c0de0001",
+        "name": "Validar ubicación",
+        "func": "if (!msg.sesion) return [null, msg];\nmsg.headers = { 'Cache-Control': 'no-store' };\nconst negar = (mensaje) => {\n    msg.statusCode = 400;\n    msg.payload = { mensaje };\n    return [null, msg];\n};\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) && Number(texto) <= 2147483647 ? Number(texto) : null;\nif (id === null) return negar('Ubicación no válida.');\nmsg.umbrales = { id, cliente: msg.sesion.cliente ?? null };\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 640,
+        "y": 300,
+        "wires": [
+            [
+                "a7e2b1a5c0de0023"
+            ],
+            [
+                "a7e2b1a5c0de0024"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0023",
+        "type": "link call",
+        "z": "a7e2b1a5c0de0001",
+        "name": "consultar umbrales",
+        "links": [
+            "a7e2b1a5c0de0010"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 850,
+        "y": 300,
+        "wires": [
+            [
+                "a7e2b1a5c0de0024"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0024",
+        "type": "http response",
+        "z": "a7e2b1a5c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1050,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "a7e2b1a5c0de0030",
+        "type": "http in",
+        "z": "a7e2b1a5c0de0001",
+        "name": "",
+        "url": "/api/ubicaciones/:id/umbrales",
+        "method": "put",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 210,
+        "y": 400,
+        "wires": [
+            [
+                "a7e2b1a5c0de0031"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0031",
+        "type": "link call",
+        "z": "a7e2b1a5c0de0001",
+        "name": "verificar sesión",
+        "links": [
+            "5e5104a1c0de0008"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 440,
+        "y": 400,
+        "wires": [
+            [
+                "a7e2b1a5c0de0032"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0032",
+        "type": "function",
+        "z": "a7e2b1a5c0de0001",
+        "name": "Validar umbrales",
+        "func": "if (!msg.sesion) return [null, msg];\nmsg.headers = { 'Cache-Control': 'no-store' };\nconst negar = (mensaje) => {\n    msg.statusCode = 400;\n    msg.payload = { mensaje };\n    return [null, msg];\n};\nconst texto = msg.req.params.id;\nconst id = /^[1-9][0-9]{0,9}$/.test(texto) && Number(texto) <= 2147483647 ? Number(texto) : null;\nif (id === null) return negar('Ubicación no válida.');\nconst cuerpo = msg.payload && typeof msg.payload === 'object' ? msg.payload : {};\nconst numero = (valor) => typeof valor === 'number' && Number.isFinite(valor) && Math.abs(valor) < 100000;\nconst NOMBRES = { temperatura: 'la temperatura', humedad: 'la humedad', presion: 'la presión' };\nconst rangos = {};\nfor (const variable of Object.keys(NOMBRES)) {\n    const r = cuerpo[variable];\n    if (!r || !numero(r.min) || !numero(r.max)) return negar(`Completa el mínimo y el máximo de ${NOMBRES[variable]} con números.`);\n    if (r.min >= r.max) return negar(`El mínimo de ${NOMBRES[variable]} debe ser menor que el máximo.`);\n    rangos[variable] = { min: Math.round(r.min * 100) / 100, max: Math.round(r.max * 100) / 100 };\n}\nconst CALIDAD = { malo: 0.5, moderado: 0.8, nunca: null };\nif (!(cuerpo.calidadAire in CALIDAD)) return negar('Elige cuándo alertar por la calidad del aire.');\nif (![60, 120, 300].includes(cuerpo.esperaSinConexionS)) return negar('La espera debe ser de 1, 2 o 5 minutos.');\nmsg.umbrales = { id, cliente: msg.sesion.cliente ?? null };\nconst calidad = CALIDAD[cuerpo.calidadAire];\nmsg.query = `WITH ubicacion AS (\n  SELECT id FROM ubicaciones WHERE id = $1 AND cliente_id = $2\n), espera AS (\n  UPDATE ubicaciones SET espera_sin_conexion_s = $3 WHERE id IN (SELECT id FROM ubicacion) RETURNING id\n), guardados AS (\n  INSERT INTO umbrales (ubicacion_id, variable, valor_min, valor_max, activo, actualizado_por, actualizado_en)\n  SELECT ubicacion.id, v.variable, v.minimo, v.maximo, v.activo, $4, now()\n  FROM ubicacion, (VALUES\n    ('temperatura', $5::numeric, $6::numeric, true),\n    ('humedad', $7::numeric, $8::numeric, true),\n    ('presion', $9::numeric, $10::numeric, true),\n    ('calidad_aire', COALESCE($11::numeric, (SELECT valor_min FROM umbrales\n      WHERE ubicacion_id = $1 AND variable = 'calidad_aire'), 0.5), NULL::numeric, $11::numeric IS NOT NULL)\n  ) AS v (variable, minimo, maximo, activo)\n  ON CONFLICT (ubicacion_id, variable) DO UPDATE SET\n    valor_min = EXCLUDED.valor_min, valor_max = EXCLUDED.valor_max, activo = EXCLUDED.activo,\n    actualizado_por = EXCLUDED.actualizado_por, actualizado_en = EXCLUDED.actualizado_en\n  RETURNING ubicacion_id\n)\nSELECT (SELECT count(*) FROM ubicacion)::int AS propia, (SELECT count(*) FROM guardados)::int AS guardados`;\nmsg.params = [id, msg.umbrales.cliente, cuerpo.esperaSinConexionS, msg.sesion.sub ?? null,\n    rangos.temperatura.min, rangos.temperatura.max, rangos.humedad.min, rangos.humedad.max,\n    rangos.presion.min, rangos.presion.max, calidad];\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 630,
+        "y": 400,
+        "wires": [
+            [
+                "a7e2b1a5c0de0033"
+            ],
+            [
+                "a7e2b1a5c0de0036"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0033",
+        "type": "postgresql",
+        "z": "a7e2b1a5c0de0001",
+        "name": "Guardar umbrales",
+        "query": "",
+        "postgreSQLConfig": "5a9c3b7e1d2f4a03",
+        "split": false,
+        "rowsPerMsg": 1,
+        "outputs": 1,
+        "x": 830,
+        "y": 400,
+        "wires": [
+            [
+                "a7e2b1a5c0de0034"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0034",
+        "type": "function",
+        "z": "a7e2b1a5c0de0001",
+        "name": "Comprobar ubicación",
+        "func": "if (!msg.payload[0].propia) {\n    msg.statusCode = 403;\n    msg.payload = { mensaje: 'No tienes permiso.' };\n    return [null, msg];\n}\nreturn [msg, null];",
+        "outputs": 2,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 1030,
+        "y": 400,
+        "wires": [
+            [
+                "a7e2b1a5c0de0035"
+            ],
+            [
+                "a7e2b1a5c0de0036"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0035",
+        "type": "link call",
+        "z": "a7e2b1a5c0de0001",
+        "name": "consultar umbrales",
+        "links": [
+            "a7e2b1a5c0de0010"
+        ],
+        "linkType": "static",
+        "timeout": "30",
+        "x": 1240,
+        "y": 400,
+        "wires": [
+            [
+                "a7e2b1a5c0de0036"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0036",
+        "type": "http response",
+        "z": "a7e2b1a5c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 1440,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "a7e2b1a5c0de0040",
+        "type": "catch",
+        "z": "a7e2b1a5c0de0001",
+        "name": "Errores de alertas y umbrales",
+        "scope": null,
+        "uncaught": false,
+        "x": 200,
+        "y": 500,
+        "wires": [
+            [
+                "a7e2b1a5c0de0041"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0041",
+        "type": "function",
+        "z": "a7e2b1a5c0de0001",
+        "name": "Responder error",
+        "func": "delete msg.umbrales;\nnode.error(`Alertas y umbrales: ${msg.error?.source?.name || 'API'}: ${msg.error?.message || 'Error inesperado'}`);\nmsg.statusCode = 500;\nmsg.headers = { 'Cache-Control': 'no-store' };\nmsg.payload = { mensaje: 'No se pudo completar la operación. Intenta de nuevo.' };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 430,
+        "y": 500,
+        "wires": [
+            [
+                "a7e2b1a5c0de0042"
+            ]
+        ]
+    },
+    {
+        "id": "a7e2b1a5c0de0042",
+        "type": "http response",
+        "z": "a7e2b1a5c0de0001",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 630,
+        "y": 500,
+        "wires": []
     }
 ]
