@@ -8,7 +8,7 @@ Eclipse Mosquitto, broker MQTT base del Sprint 1 (HU-05).
 
 | Archivo | Qué hace |
 |---|---|
-| `config/mosquitto.conf` | Puerto 1883, sin acceso anónimo, contraseñas y permisos por tema |
+| `config/mosquitto.conf` | Puerto 1883 (MQTT por TCP, red local) y 9001 (MQTT sobre WebSocket, solo dentro de Docker; lo publica el túnel como `wss://mqtt.telemon.site`), sin acceso anónimo, contraseñas y permisos por tema |
 | `config/entrypoint.sh` | Al iniciar el contenedor, genera las contraseñas y la lista de permisos a partir del `.env` |
 | `probar.sh` | Prueba automática del broker (4 casos) |
 
@@ -66,7 +66,7 @@ docker exec broker mosquitto_sub -u nodered -P <clave> -t 'telemetria/#' -v
 | Usuario / contraseña | `MQTT_USER_ESP32` / `MQTT_PASS_ESP32` del `.env` |
 | Client id | MAC sin ":" (ej. `F8B3B72BFC24`) |
 | Tema | `telemetria/<client id>/lecturas` |
-| Protocolo | MQTT 3.1.1 (`PubSubClient`), QoS 0 |
+| Protocolo | MQTT 3.1.1 (`esp-mqtt`), QoS 0, por TCP o WebSocket |
 
 Formato del mensaje:
 

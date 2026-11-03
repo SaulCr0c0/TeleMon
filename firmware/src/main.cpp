@@ -5,7 +5,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <Wire.h>
-#include <PubSubClient.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
 #include <ArduinoJson.h>
@@ -15,6 +14,8 @@
 
 #include "config.h"
 #include "secrets.h"
+#include "raices.h"
+#include "mqtt_client.h"
 
 // ---------- Sensores ----------
 OneWire oneWire(PIN_DS18B20);
@@ -28,15 +29,14 @@ float ultimaHumedad = NAN;
 DallasTemperature ds18b20(&oneWire);
 
 // ---------- Red ----------
-WiFiClient wifiCliente;
-PubSubClient mqtt(wifiCliente);
+esp_mqtt_client_handle_t mqtt = nullptr;
+volatile bool mqttConectado = false;
 String mac;
 String clienteId;
 String tema;
 
 unsigned long ultimoCiclo = 0;
 unsigned long ultimoIntentoWifi = 0;
-unsigned long ultimoIntentoMqtt = 0;
 
 // Lectura de un ciclo. NAN significa "inválida" y se envía como null.
 struct Lectura {
@@ -314,19 +314,43 @@ void mantenerWifi() {
   }
 }
 
-void mantenerMqtt() {
-  if (WiFi.status() != WL_CONNECTED || mqtt.connected()) return;
-  if (ultimoIntentoMqtt != 0 && millis() - ultimoIntentoMqtt < REINTENTO_MQTT_MS) return;
-  ultimoIntentoMqtt = millis();
-
-  Serial.printf("[MQTT] conectando a %s:%d como %s...\n", MQTT_HOST, MQTT_PORT, clienteId.c_str());
-  if (mqtt.connect(clienteId.c_str(), MQTT_USER, MQTT_PASS)) {
+void eventoMqtt(void* arg, esp_event_base_t base, int32_t id, void* datos) {
+  esp_mqtt_event_handle_t evento = (esp_mqtt_event_handle_t)datos;
+  if (id == MQTT_EVENT_CONNECTED) {
+    mqttConectado = true;
     Serial.println("[MQTT] conectado");
-  } else {
-    // -2 sin conexión TCP, 4 usuario/clave incorrectos, 5 no autorizado
-    Serial.printf("[MQTT] falló, estado %d; reintento en %d s\n",
-                  mqtt.state(), REINTENTO_MQTT_MS / 1000);
+  } else if (id == MQTT_EVENT_DISCONNECTED) {
+    if (mqttConectado) Serial.println("[MQTT] desconectado; reintenta solo");
+    mqttConectado = false;
+  } else if (id == MQTT_EVENT_ERROR && evento->error_handle) {
+    Serial.printf("[MQTT] error: tipo %d, respuesta %d, tls 0x%x, socket %d\n",
+                  evento->error_handle->error_type, evento->error_handle->connect_return_code,
+                  evento->error_handle->esp_tls_last_esp_err,
+                  evento->error_handle->esp_transport_sock_errno);
   }
+}
+
+void mantenerMqtt() {
+  if (mqtt || WiFi.status() != WL_CONNECTED) return;
+  esp_mqtt_client_config_t config = {};
+  config.uri = MQTT_URI;
+  config.client_id = clienteId.c_str();
+  config.username = MQTT_USER;
+  config.password = MQTT_PASS;
+  config.keepalive = MQTT_KEEPALIVE;
+  config.network_timeout_ms = MQTT_TIMEOUT * 1000;
+  config.reconnect_timeout_ms = REINTENTO_MQTT_MS;
+  if (strncmp(MQTT_URI, "wss://", 6) == 0 || strncmp(MQTT_URI, "mqtts://", 8) == 0) {
+    config.cert_pem = RAICES_TLS;
+  }
+  mqtt = esp_mqtt_client_init(&config);
+  if (!mqtt) {
+    Serial.println("[MQTT] no se pudo crear el cliente");
+    return;
+  }
+  esp_mqtt_client_register_event(mqtt, MQTT_EVENT_ANY, eventoMqtt, nullptr);
+  esp_mqtt_client_start(mqtt);
+  Serial.printf("[MQTT] conectando a %s como %s...\n", MQTT_URI, clienteId.c_str());
 }
 
 // ======================================================================
@@ -370,11 +394,11 @@ void publicar(const Lectura& l) {
   char payload[320];
   size_t n = serializeJson(doc, payload, sizeof(payload));
 
-  if (!mqtt.connected()) {
+  if (!mqtt || !mqttConectado) {
     Serial.printf("[MQTT] sin conexión, no se publica: %s\n", payload);
     return;
   }
-  bool ok = mqtt.publish(tema.c_str(), (const uint8_t*)payload, n, false);
+  bool ok = esp_mqtt_client_publish(mqtt, tema.c_str(), payload, n, 0, 0) >= 0;
   Serial.printf("[MQTT] %s %s -> %s\n", ok ? "publicado" : "ERROR al publicar", tema.c_str(), payload);
 }
 
@@ -411,11 +435,6 @@ void setup() {
   clienteId.replace(":", "");
   tema = "telemetria/" + clienteId + "/lecturas";
   Serial.printf("[Nodo] MAC %s  tema %s\n", mac.c_str(), tema.c_str());
-
-  mqtt.setServer(MQTT_HOST, MQTT_PORT);
-  mqtt.setBufferSize(512);
-  mqtt.setKeepAlive(MQTT_KEEPALIVE);
-  mqtt.setSocketTimeout(MQTT_TIMEOUT);
 #endif
 }
 
@@ -428,7 +447,6 @@ void loop() {
 #else
   mantenerWifi();
   mantenerMqtt();
-  mqtt.loop();
 
   if (millis() - ultimoCiclo >= INTERVALO_MS) {
     ultimoCiclo = millis();

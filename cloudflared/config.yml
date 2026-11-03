@@ -3,4 +3,6 @@ ingress:
     service: http://proxy_web:80
   - hostname: www.telemon.site
     service: http://proxy_web:80
+  - hostname: mqtt.telemon.site
+    service: http://broker:9001
   - service: http_status:404
