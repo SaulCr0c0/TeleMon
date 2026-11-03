@@ -8,8 +8,6 @@
 #include <PubSubClient.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
-#include <DHT.h>
-#include <Adafruit_BMP280.h>
 #include <ArduinoJson.h>
 #include <math.h>
 #include <time.h>
@@ -20,9 +18,13 @@
 
 // ---------- Sensores ----------
 OneWire oneWire(PIN_DS18B20);
-DHT dht(PIN_DHT11, DHT11);
-Adafruit_BMP280 bmp;
-uint8_t bmpDireccion = 0;   // 0 = no encontrado
+uint8_t bmpDireccion = 0;
+uint16_t bmpT1, bmpP1;
+int16_t bmpT2, bmpT3, bmpP2, bmpP3, bmpP4, bmpP5, bmpP6, bmpP7, bmpP8, bmpP9;
+portMUX_TYPE muxDht = portMUX_INITIALIZER_UNLOCKED;
+unsigned long ultimaLecturaDht = 0;
+bool dhtPrimeraDescartada = false;
+float ultimaHumedad = NAN;
 DallasTemperature ds18b20(&oneWire);
 
 // ---------- Red ----------
@@ -53,29 +55,71 @@ bool enRango(float v, float min, float max) {
   return !isnan(v) && v >= min && v <= max;
 }
 
-// El BMP280 puede estar en 0x76 o 0x77. Se reintenta en cada ciclo si falta.
+bool bmpEscribir(uint8_t reg, uint8_t valor) {
+  Wire.beginTransmission(bmpDireccion);
+  Wire.write(reg);
+  Wire.write(valor);
+  return Wire.endTransmission() == 0;
+}
+
+bool bmpLeer(uint8_t reg, uint8_t* buf, uint8_t n) {
+  Wire.beginTransmission(bmpDireccion);
+  Wire.write(reg);
+  if (Wire.endTransmission(false) != 0) return false;
+  if (Wire.requestFrom(bmpDireccion, n) != n) return false;
+  for (uint8_t i = 0; i < n; i++) buf[i] = Wire.read();
+  return true;
+}
+
 bool iniciarBmp() {
   const uint8_t direcciones[] = {0x76, 0x77};
   for (uint8_t dir : direcciones) {
-    if (bmp.begin(dir)) {
-      bmp.setSampling(Adafruit_BMP280::MODE_NORMAL,
-                      Adafruit_BMP280::SAMPLING_X2,     // temperatura
-                      Adafruit_BMP280::SAMPLING_X16,    // presión
-                      Adafruit_BMP280::FILTER_X16,
-                      Adafruit_BMP280::STANDBY_MS_500);
-      bmpDireccion = dir;
-      Serial.printf("[BMP280] encontrado en 0x%02X\n", dir);
-      return true;
-    }
+    Wire.beginTransmission(dir);
+    if (Wire.endTransmission() != 0) continue;
+    bmpDireccion = dir;
+    uint8_t id = 0;
+    uint8_t c[24];
+    if (!bmpLeer(0xD0, &id, 1) || (id != 0x58 && id != 0x60)) continue;
+    bmpEscribir(0xE0, 0xB6);
+    delay(10);
+    if (!bmpLeer(0x88, c, 24)) continue;
+    bmpT1 = c[0] | c[1] << 8;
+    bmpT2 = c[2] | c[3] << 8;
+    bmpT3 = c[4] | c[5] << 8;
+    bmpP1 = c[6] | c[7] << 8;
+    bmpP2 = c[8] | c[9] << 8;
+    bmpP3 = c[10] | c[11] << 8;
+    bmpP4 = c[12] | c[13] << 8;
+    bmpP5 = c[14] | c[15] << 8;
+    bmpP6 = c[16] | c[17] << 8;
+    bmpP7 = c[18] | c[19] << 8;
+    bmpP8 = c[20] | c[21] << 8;
+    bmpP9 = c[22] | c[23] << 8;
+    if (bmpT1 == 0 || bmpP1 == 0) continue;
+    bmpEscribir(0xF5, 0x00);
+    Serial.printf("[BMP280] encontrado en 0x%02X (chip 0x%02X)\n", dir, id);
+    return true;
   }
   bmpDireccion = 0;
   return false;
 }
 
-bool bmpResponde() {
-  if (bmpDireccion == 0) return false;
-  Wire.beginTransmission(bmpDireccion);
-  return Wire.endTransmission() == 0;
+float bmpCompensar(int32_t adcT, int32_t adcP) {
+  int32_t v1 = ((((adcT >> 3) - ((int32_t)bmpT1 << 1))) * ((int32_t)bmpT2)) >> 11;
+  int32_t v2 = (((((adcT >> 4) - ((int32_t)bmpT1)) * ((adcT >> 4) - ((int32_t)bmpT1))) >> 12) * ((int32_t)bmpT3)) >> 14;
+  int64_t a = ((int64_t)(v1 + v2)) - 128000;
+  int64_t b = a * a * (int64_t)bmpP6;
+  b = b + ((a * (int64_t)bmpP5) << 17);
+  b = b + (((int64_t)bmpP4) << 35);
+  a = ((a * a * (int64_t)bmpP3) >> 8) + ((a * (int64_t)bmpP2) << 12);
+  a = (((((int64_t)1) << 47) + a)) * ((int64_t)bmpP1) >> 33;
+  if (a == 0) return NAN;
+  int64_t p = 1048576 - adcP;
+  p = (((p << 31) - b) * 3125) / a;
+  a = (((int64_t)bmpP9) * (p >> 13) * (p >> 13)) >> 25;
+  b = (((int64_t)bmpP8) * p) >> 19;
+  p = ((p + a + b) >> 8) + (((int64_t)bmpP7) << 4);
+  return (p / 256.0f) / 100.0f;
 }
 
 float leerTemperatura() {
@@ -87,13 +131,85 @@ float leerTemperatura() {
   return t;
 }
 
+bool dhtEsperar(int nivel, uint32_t maxUs) {
+  uint32_t t0 = micros();
+  while (digitalRead(PIN_DHT11) != nivel) {
+    if (micros() - t0 > maxUs) return false;
+  }
+  return true;
+}
+
+bool leerDht11(float* humedad) {
+  uint8_t d[5] = {0, 0, 0, 0, 0};
+  pinMode(PIN_DHT11, OUTPUT);
+  digitalWrite(PIN_DHT11, LOW);
+  delay(20);
+  pinMode(PIN_DHT11, INPUT_PULLUP);
+  bool ok = true;
+  portENTER_CRITICAL(&muxDht);
+  ok = dhtEsperar(LOW, 100) && dhtEsperar(HIGH, 120) && dhtEsperar(LOW, 120);
+  for (int i = 0; ok && i < 40; i++) {
+    if (!dhtEsperar(HIGH, 100)) {
+      ok = false;
+      break;
+    }
+    uint32_t t0 = micros();
+    if (!dhtEsperar(LOW, 120)) {
+      ok = false;
+      break;
+    }
+    if (micros() - t0 > 40) d[i / 8] |= 1 << (7 - i % 8);
+  }
+  portEXIT_CRITICAL(&muxDht);
+  if (!ok) return false;
+  if ((uint8_t)(d[0] + d[1] + d[2] + d[3]) != d[4]) return false;
+  if (d[0] == 0 && d[2] == 0) return false;
+  *humedad = d[0] + d[1] * 0.1f;
+  return true;
+}
+
 float leerHumedad() {
-  return dht.readHumidity();   // NAN si falla el checksum o no responde
+  if (ultimaLecturaDht != 0 && millis() - ultimaLecturaDht < 2000) return ultimaHumedad;
+  ultimaLecturaDht = millis();
+  float h;
+  if (!leerDht11(&h)) {
+    ultimaHumedad = NAN;
+    return NAN;
+  }
+  if (!dhtPrimeraDescartada) {
+    dhtPrimeraDescartada = true;
+    ultimaHumedad = NAN;
+    return NAN;
+  }
+  ultimaHumedad = h;
+  return h;
 }
 
 float leerPresion() {
-  if (!bmpResponde() && !iniciarBmp()) return NAN;
-  return bmp.readPressure() / 100.0f;   // Pa -> hPa
+  if (bmpDireccion == 0 && !iniciarBmp()) return NAN;
+  if (!bmpEscribir(0xF4, 0x55)) {
+    bmpDireccion = 0;
+    return NAN;
+  }
+  delay(45);
+  uint8_t estado = 0x08;
+  for (int i = 0; i < 20 && (estado & 0x08); i++) {
+    if (!bmpLeer(0xF3, &estado, 1)) break;
+    if (estado & 0x08) delay(2);
+  }
+  uint8_t d[6];
+  if (!bmpLeer(0xF7, d, 6)) {
+    bmpDireccion = 0;
+    return NAN;
+  }
+  int32_t adcP = ((uint32_t)d[0] << 12) | ((uint32_t)d[1] << 4) | (d[2] >> 4);
+  int32_t adcT = ((uint32_t)d[3] << 12) | ((uint32_t)d[4] << 4) | (d[5] >> 4);
+  if (adcP == 0x80000 || adcT == 0x80000) {
+    Serial.println("[BMP280] medición omitida (se reinició); se vuelve a configurar");
+    bmpDireccion = 0;
+    return NAN;
+  }
+  return bmpCompensar(adcT, adcP);
 }
 
 float leerVoltajeMq() {
@@ -281,7 +397,7 @@ void setup() {
   Wire.begin(PIN_SDA, PIN_SCL);
   analogSetPinAttenuation(PIN_MQ135, ADC_11db);   // rango completo 0-3.3 V
   ds18b20.begin();
-  dht.begin();
+  pinMode(PIN_DHT11, INPUT_PULLUP);
   if (!iniciarBmp()) Serial.println("[BMP280] no encontrado en 0x76 ni 0x77");
   Serial.printf("[DS18B20] %d sensor(es) en el bus\n", ds18b20.getDeviceCount());
 
