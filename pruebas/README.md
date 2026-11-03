@@ -127,6 +127,30 @@ python -B -m unittest discover -s pruebas -p test_reinicios.py -v
 
 Verifica que se anote un solo «Reinicio del monitor» cuando el `uptime` vuelve a empezar, que la primera lectura y un `uptime` nulo no cuenten, y que no se abran alertas.
 
+## Persistencia al recrear el stack (#56, CP-03)
+
+`persistencia.sh` toma una foto del estado, ejecuta `docker compose down` y `docker compose up -d`, espera a que PostgreSQL y Node-RED estén sanos y compara. El servicio queda fuera por unos segundos, por eso pide `--si`.
+
+```bash
+./pruebas/persistencia.sh --si
+```
+
+Compara antes y después: el hash de `flows.json` (en el host y dentro del contenedor) y de `flows_cred.json`, los módulos instalados de Node-RED, las filas de `usuarios`, `clientes`, `ubicaciones`, `dispositivos`, `umbrales`, `alertas` y `eventos_dispositivo`, las lecturas previas, los usuarios MQTT de Mosquitto y los volúmenes del proyecto. Si un monitor está publicando, también confirma que llegan lecturas nuevas después de recrear. Termina con `RESULTADO: PASA` o `RESULTADO: FALLA`.
+
+Dónde vive cada dato:
+
+| Servicio | Datos | Cómo persisten |
+|---|---|---|
+| PostgreSQL | Tablas y lecturas | Volumen `postgres_datos` |
+| Node-RED | Flujos, credenciales, módulos y `settings.js` | Carpeta `nodered/data` del host montada en `/data` |
+| Mosquitto | Configuración | Carpeta `mosquitto/config` (solo lectura) |
+| Mosquitto | Usuarios y ACL | Se regeneran desde `.env` en cada arranque (`entrypoint.sh`) |
+| Mosquitto | `/mosquitto/data` y `/mosquitto/log` | Volúmenes `mosquitto_datos` y `mosquitto_log` (`persistence false` y log por stdout: hoy quedan vacíos) |
+
+Resultado en el servidor (03/11/2026, antes de los volúmenes con nombre): **PASA**. Stack recreado en 40 s; se conservaron `flows.json` y `flows_cred.json` (mismo hash en host y contenedor), 16 módulos de Node-RED, 2 usuarios, 2 clientes, 3 ubicaciones, 3 dispositivos, 12 umbrales, 10 alertas, 8 eventos, las 3525 lecturas y los usuarios MQTT `esp32` y `nodered`; llegaron 7 lecturas nuevas del ESP32 sin tocarlo y `https://telemon.site` siguió respondiendo. Quedaron 2 volúmenes anónimos huérfanos de Mosquitto, que es lo que corrigen los volúmenes con nombre.
+
+Antes de #56, `/mosquitto/data` y `/mosquitto/log` usaban volúmenes anónimos de la imagen: cada `down` + `up` creaba dos nuevos y dejaba los anteriores huérfanos. `docker compose down -v` sí borra los volúmenes con nombre y con ellos las lecturas: no usarlo en el servidor.
+
 ## Carga MQTT
 
 `carga.py` simula monitores publicando en `telemetria/<ID>/lecturas` con MQTT 3.1.1 y QoS 0. Usa un cliente oyente adicional para medir el recorrido publicador → broker → oyente. No mide persistencia en PostgreSQL ni actualización del navegador.
