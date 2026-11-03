@@ -421,6 +421,44 @@ Cada alerta abierta, actualizada o cerrada sale por `/ws/lecturas` con la forma 
 
 `accion` es `abierta`, `actualizada` (peor valor) o `cerrada`. El Panel ya recarga sus alertas con cualquier mensaje `tipo: "alerta"` de su ubicación.
 
+## Flujo «Alertas y umbrales» (#72)
+
+```text
+[GET /api/ubicaciones/:id/alertas] → [verificar sesión] → [Validar alertas] → [Alertas de la ubicación] → [Responder alertas]
+[link in «consultar umbrales»] → [Armar consulta de umbrales] → [Umbrales] → [Dar forma de umbrales] → [link out «volver»]
+[GET /api/ubicaciones/:id/umbrales] → [verificar sesión] → [Validar ubicación] → [consultar umbrales]
+[PUT /api/ubicaciones/:id/umbrales] → [verificar sesión] → [Validar umbrales] → [Guardar umbrales] → [Comprobar ubicación] → [consultar umbrales]
+```
+
+Las tres rutas son del cliente dueño de la ubicación: sin sesión 401, ubicación de otro cliente o inexistente 403, id inválido 400 `Ubicación no válida.`.
+
+**`GET /api/ubicaciones/:id/alertas?estado=abiertas|cerradas`** (por defecto `abiertas`; otro valor 400 `Estado no válido.`): lista con la forma de `ALERTAS` del modo demo, `{ id, ubicacionId, dispositivoId, nodo, tipo, variable, mensaje, abiertaEn, cerradaEn, peorValor }`. `peorValor` lleva la unidad (`31.5 °C`). Las abiertas, de la más nueva a la más vieja por apertura; las cerradas, por cierre. Hasta 500.
+
+**`GET /api/ubicaciones/:id/umbrales`** responde la forma de `UMBRALES` del modo demo:
+
+```json
+{
+  "temperatura": { "min": 18, "max": 28 },
+  "humedad": { "min": 30, "max": 60 },
+  "presion": { "min": 740, "max": 760 },
+  "calidadAire": "malo",
+  "esperaSinConexionS": 120,
+  "actualizadoPor": "Ana Rojas",
+  "actualizadoEn": "2026-11-02T22:40:00.000Z"
+}
+```
+
+`calidadAire` sale del umbral `calidad_aire` (Rs/R0 mínimo): `malo` = 0,5 (alerta con nivel malo), `moderado` = 0,8 (alerta con moderado o malo) y `nunca` = desactivado. `esperaSinConexionS` es `ubicaciones.espera_sin_conexion_s`.
+
+**`PUT /api/ubicaciones/:id/umbrales`** con esa misma forma (sin `actualizado…`) guarda todo en una sentencia: los tres rangos quedan activos, la calidad del aire según la opción y la espera en la ubicación; anota quién y cuándo. Como «Evaluar alertas» lee los umbrales activos con cada lectura, valen desde la siguiente.
+
+| Caso | Respuesta |
+|---|---|
+| Mínimo o máximo que no es número | 400 `Completa el mínimo y el máximo de … con números.` |
+| Mínimo mayor o igual al máximo | 400 `El mínimo de … debe ser menor que el máximo.` |
+| `calidadAire` distinto de `malo`, `moderado` o `nunca` | 400 `Elige cuándo alertar por la calidad del aire.` |
+| Espera distinta de 60, 120 o 300 | 400 `La espera debe ser de 1, 2 o 5 minutos.` |
+
 ## Nodos sin conexión (#74)
 
 ```text

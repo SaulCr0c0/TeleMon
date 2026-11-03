@@ -97,6 +97,16 @@ python -B -m unittest discover -s pruebas -p test_serie.py -v
 
 Verifica la sesión y el 403 con un nodo de otro cliente o sin ubicación, que cada periodo use su fuente (crudas en 1 h, por minuto en 24 h, promedio ponderado por hora en 7 días), que solo cuenten las lecturas de la ubicación actual del nodo, el rango del umbral activo y los 400.
 
+## Alertas y umbrales (#72)
+
+`test_alertas_umbrales.py` prueba `GET /api/ubicaciones/:id/alertas` y `GET/PUT /api/ubicaciones/:id/umbrales` con la recepción real, contra PostgreSQL 17, en el mismo entorno aislado de `test_ubicaciones.py`.
+
+```bash
+python -B -m unittest discover -s pruebas -p test_alertas_umbrales.py -v
+```
+
+Verifica la sesión y el 403 con la ubicación de otro cliente, las alertas abiertas y cerradas con su forma y orden, leer y guardar los umbrales (rangos, calidad del aire y espera), los 400 por valores inválidos y que un umbral guardado abra la alerta desde las lecturas siguientes.
+
 ## Carga MQTT
 
 `carga.py` simula monitores publicando en `telemetria/<ID>/lecturas` con MQTT 3.1.1 y QoS 0. Usa un cliente oyente adicional para medir el recorrido publicador → broker → oyente. No mide persistencia en PostgreSQL ni actualización del navegador.
