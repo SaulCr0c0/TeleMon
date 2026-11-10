@@ -255,3 +255,13 @@ python3 -m unittest -v test_carga.py
 ```
 
 **Responsable:** Garcia Nogales, B.
+
+## Comparativa Mosquitto vs. broker propio (#80)
+
+`comparativa_brokers.py` arma una red Docker aislada con un Mosquitto y dos broker propios (log `INFO` y `WARNING`), con claves de prueba y la misma ACL, y corre `carga.py` contra cada uno con 1, 10 y 50 clientes y un escenario de estrés. Mide latencia, pérdidas, CPU y RAM del contenedor (cgroup v2), y captura un ciclo CONNECT/PUBLISH de cada broker con `tcpdump`.
+
+```bash
+python3 -B pruebas/comparativa_brokers.py
+```
+
+Tarda unos 40 minutos. Requiere Docker en Linux con cgroup v2 y no usa el `.env`. Los resultados del 09/11/2026 y su análisis están en [`docs/comparativa-brokers.md`](../docs/comparativa-brokers.md). `carga.py --salida archivo.json` guarda el resumen y las latencias de una corrida.

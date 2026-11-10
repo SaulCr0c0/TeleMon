@@ -20,6 +20,7 @@ def argumentos(argv=None):
     p.add_argument("--duracion", type=float, default=60, help="segundos publicando")
     p.add_argument("--intervalo", type=float, default=5, help="segundos entre rondas")
     p.add_argument("--ids", default="", help="IDs de 12 caracteres hexadecimales, separados por coma")
+    p.add_argument("--salida", default="", help="archivo JSON con el resumen y las latencias")
     a = p.parse_args(argv)
     if not 1 <= a.puerto <= 65535 or a.clientes < 1:
         p.error("El puerto debe estar entre 1 y 65535 y clientes debe ser positivo.")
@@ -250,7 +251,10 @@ def ejecutar(a):
         if fallos:
             raise RuntimeError(fallos[0])
         latencias, perdidos = medicion.resumen()
+        duracion_real = time.monotonic() - inicio
         print(f"Enviados: {enviados}  Recibidos: {len(latencias)}  Perdidos: {perdidos}")
+        if a.salida:
+            guardar(a, enviados, perdidos, latencias, duracion_real)
         if latencias:
             p95 = sorted(latencias)[math.ceil(len(latencias) * 0.95) - 1]
             print(f"Latencia p50: {statistics.median(latencias):.1f} ms  p95: {p95:.1f} ms")
@@ -265,6 +269,32 @@ def ejecutar(a):
             red.esperar(lambda: not red.activos, 5)
         finally:
             red.cerrar()
+
+
+def percentil(valores, p):
+    ordenados = sorted(valores)
+    return ordenados[max(0, math.ceil(len(ordenados) * p) - 1)]
+
+
+def guardar(a, enviados, perdidos, latencias, duracion_real):
+    resumen = {
+        "host": a.host,
+        "puerto": a.puerto,
+        "clientes": a.clientes,
+        "duracion_s": a.duracion,
+        "intervalo_s": a.intervalo,
+        "duracion_real_s": round(duracion_real, 3),
+        "enviados": enviados,
+        "recibidos": len(latencias),
+        "perdidos": perdidos,
+        "p50_ms": round(statistics.median(latencias), 3) if latencias else None,
+        "p95_ms": round(percentil(latencias, 0.95), 3) if latencias else None,
+        "p99_ms": round(percentil(latencias, 0.99), 3) if latencias else None,
+        "max_ms": round(max(latencias), 3) if latencias else None,
+        "latencias_ms": [round(x, 3) for x in latencias],
+    }
+    with open(a.salida, "w", encoding="utf-8") as archivo:
+        json.dump(resumen, archivo)
 
 
 def main():
