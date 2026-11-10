@@ -205,6 +205,82 @@ class PruebasBroker(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(any(i.startswith("auto-") for i in self.broker.clientes))
 
 
+    async def test_connect_enviado_byte_a_byte(self):
+        lector, escritor = await asyncio.open_connection("127.0.0.1", self.puerto)
+        c = ClientePrueba(lector, escritor)
+        self.clientes.append(c)
+        cuerpo = p.cadena("MQTT") + bytes([4, 0xC2]) + (30).to_bytes(2, "big")
+        cuerpo += p.cadena("LENTO") + p.cadena("esp32") + p.cadena("secreto")
+        for byte in p.armar(p.CONNECT, 0, cuerpo):
+            await c.enviar(bytes([byte]))
+            await asyncio.sleep(0.002)
+        self.assertEqual(await c.recibir(), (p.CONNACK, 0, b"\x00\x00"))
+
+    async def test_varios_paquetes_en_un_solo_envio(self):
+        lector, escritor = await asyncio.open_connection("127.0.0.1", self.puerto)
+        c = ClientePrueba(lector, escritor)
+        self.clientes.append(c)
+        cuerpo = p.cadena("MQTT") + bytes([4, 0xC2]) + (30).to_bytes(2, "big")
+        cuerpo += p.cadena("JUNTO") + p.cadena("nodered") + p.cadena("otra")
+        suscripcion = (5).to_bytes(2, "big") + p.cadena("a/#") + b"\x00"
+        await c.enviar(p.armar(p.CONNECT, 0, cuerpo) + p.armar(p.SUBSCRIBE, 0x02, suscripcion) + p.armar(p.PINGREQ))
+        self.assertEqual(await c.recibir(), (p.CONNACK, 0, b"\x00\x00"))
+        self.assertEqual(await c.recibir(), (p.SUBACK, 0, b"\x00\x05\x00"))
+        self.assertEqual(await c.recibir(), (p.PINGRESP, 0, b""))
+
+    async def test_ruta_guardada_se_actualiza_al_suscribir_y_desuscribir(self):
+        nodo = await self.nuevo("N")
+        await nodo.recibir()
+        primero = await self.nuevo("uno", usuario="nodered", clave="otra")
+        await primero.recibir()
+        await primero.suscribir("t/+")
+        await nodo.publicar("t/x", b"1")
+        self.assertEqual(p.decodificar_publish(0, (await primero.recibir())[2])[2], b"1")
+        segundo = await self.nuevo("dos", usuario="nodered", clave="otra")
+        await segundo.recibir()
+        await segundo.suscribir("t/x")
+        await nodo.publicar("t/x", b"2")
+        self.assertEqual(p.decodificar_publish(0, (await primero.recibir())[2])[2], b"2")
+        self.assertEqual(p.decodificar_publish(0, (await segundo.recibir())[2])[2], b"2")
+        await primero.enviar(p.armar(p.UNSUBSCRIBE, 0x02, (3).to_bytes(2, "big") + p.cadena("t/+")))
+        await primero.recibir()
+        await segundo.cerrar()
+        await asyncio.sleep(0.05)
+        await nodo.publicar("t/x", b"3")
+        with self.assertRaises(asyncio.TimeoutError):
+            await primero.recibir(espera=0.5)
+        self.assertEqual(self.broker.rutas.get("t/x"), ())
+
+    async def test_publish_no_se_registra_en_info(self):
+        oyente = await self.nuevo("oyente", usuario="nodered", clave="otra")
+        await oyente.recibir()
+        await oyente.suscribir("a/#")
+        nodo = await self.nuevo("N")
+        await nodo.recibir()
+        with self.assertLogs("broker", level="INFO") as registro:
+            logging.getLogger("broker").setLevel(logging.INFO)
+            logging.getLogger("broker").info("marca")
+            await nodo.publicar("a/b", b"x")
+            await oyente.recibir()
+        self.assertFalse(any("PUBLISH" in linea for linea in registro.output))
+
+
+class PruebasResumen(unittest.IsolatedAsyncioTestCase):
+    async def test_resumen_periodico(self):
+        broker = modulo.Broker(leer_usuarios("esp32:secreto,nodered:otra"), resumen_s=0.3)
+        await broker.iniciar("127.0.0.1", 0)
+        nodo = await ClientePrueba.conectar(broker.puerto(), "N")
+        await nodo.recibir()
+        with self.assertLogs("broker", level="INFO") as registro:
+            logging.getLogger("broker").setLevel(logging.INFO)
+            for _ in range(3):
+                await nodo.publicar("a/b", b"x")
+            await asyncio.sleep(0.5)
+        await nodo.cerrar()
+        await broker.detener()
+        self.assertTrue(any("3 PUBLISH, 0 entregas, 1 clientes" in linea for linea in registro.output))
+
+
 class PruebasBrokerConAcl(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         logging.getLogger("broker").setLevel(logging.CRITICAL)

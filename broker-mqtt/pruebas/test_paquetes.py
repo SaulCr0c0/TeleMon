@@ -62,5 +62,32 @@ class PruebasPaquetes(unittest.TestCase):
         self.assertEqual(p.pingresp(), b"\xd0\x00")
 
 
+class PruebasExtraer(unittest.TestCase):
+    def test_paquete_incompleto_devuelve_none(self):
+        paquete = p.armar(p.PUBLISH, 0, p.cadena("a/b") + b"x" * 300)
+        for corte in range(len(paquete)):
+            with self.subTest(corte=corte):
+                self.assertIsNone(p.extraer(bytearray(paquete[:corte])))
+
+    def test_varios_paquetes_en_un_buffer(self):
+        buffer = bytearray(p.armar(p.PUBLISH, 0, p.cadena("a/b") + b"hola") + p.armar(p.PINGREQ))
+        tipo, banderas, cuerpo, pos = p.extraer(buffer)
+        self.assertEqual((tipo, banderas, p.tema_de_publish(cuerpo)), (p.PUBLISH, 0, "a/b"))
+        self.assertEqual(p.extraer(buffer, pos), (p.PINGREQ, 0, b"", len(buffer)))
+
+    def test_longitud_de_cinco_bytes_en_buffer(self):
+        with self.assertRaises(p.ErrorProtocolo):
+            p.extraer(bytearray(b"\x30\xff\xff\xff\xff\x01"))
+
+    def test_reenviar_publish_conserva_los_bytes(self):
+        original = p.publish("telemetria/A/lecturas", b'{"t":1}')
+        _, _, cuerpo, _ = p.extraer(bytearray(original))
+        self.assertEqual(p.reenviar_publish(cuerpo), original)
+
+    def test_tema_de_publish_incompleto(self):
+        with self.assertRaises(p.ErrorProtocolo):
+            p.tema_de_publish(b"\x00\x09abc")
+
+
 if __name__ == "__main__":
     unittest.main()

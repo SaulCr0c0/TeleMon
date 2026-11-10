@@ -1,0 +1,40 @@
+{
+  "fecha": "2026-11-09T20:58:44",
+  "equipo": "telemon-server",
+  "sistema": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+  "nucleos": 2,
+  "cpu": "Intel(R) Pentium(R) CPU G2030 @ 3.00GHz",
+  "ram_gib": 7.5,
+  "docker": "29.9.2",
+  "mosquitto": "2.1.2",
+  "python_broker": "Python 3.12.16",
+  "commit": "9ddd9e8",
+  "repeticiones": 3,
+  "escenarios": {
+    "1-cliente": {
+      "clientes": 1,
+      "duracion": 60,
+      "intervalo": 1.0
+    },
+    "10-clientes": {
+      "clientes": 10,
+      "duracion": 60,
+      "intervalo": 1.0
+    },
+    "50-clientes": {
+      "clientes": 50,
+      "duracion": 60,
+      "intervalo": 1.0
+    },
+    "estres-50": {
+      "clientes": 50,
+      "duracion": 30,
+      "intervalo": 0.01
+    }
+  },
+  "brokers": [
+    "mosquitto",
+    "propio",
+    "propio-sin-log"
+  ]
+}

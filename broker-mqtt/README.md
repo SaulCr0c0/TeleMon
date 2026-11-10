@@ -21,7 +21,8 @@ Escucha en el puerto `1884` de tu compu (Mosquitto sigue en el `1883`) y por Web
 | `BROKER_USERS` | Los de `MQTT_USER_*` | `usuario:clave,usuario:clave` |
 | `BROKER_ACL` | Las reglas de Mosquitto | `usuario:accion:patron,…` |
 | `BROKER_PROPIO_PORT` | `1884` | Puerto publicado |
-| `BROKER_LOG` | `INFO` | `DEBUG`, `INFO` o `WARNING` |
+| `BROKER_LOG` | `INFO` | `DEBUG` (anota cada PUBLISH), `INFO` o `WARNING` |
+| `BROKER_RESUMEN_S` | `60` | Segundos entre resúmenes de actividad en el log |
 
 ## Cambiar de broker
 
@@ -41,7 +42,7 @@ cd ..
 ./broker-mqtt/probar.sh
 ```
 
-La primera corre 63 pruebas unitarias y de integración; la segunda, 10 pruebas con los clientes oficiales de Mosquitto contra el contenedor.
+La primera corre 73 pruebas unitarias y de integración; la segunda, 10 pruebas con los clientes oficiales de Mosquitto contra el contenedor.
 
 ## Archivos
 

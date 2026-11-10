@@ -38,7 +38,7 @@ Esta primera versión es deliberadamente simple: cubre solo lo que TeleMon neces
 | `acl.py` | Leer `BROKER_ACL` y decidir qué puede publicar y leer cada cliente |
 | `websocket.py` | Saludo HTTP de WebSocket y tramas, para que una conexión WebSocket se vea igual que una TCP |
 | `broker.py` | El servidor: una corrutina por conexión, la sesión de cada cliente y el enrutamiento |
-| `pruebas/` | 63 pruebas unitarias y de integración |
+| `pruebas/` | 73 pruebas unitarias y de integración |
 | `probar.sh` | 6 pruebas con `mosquitto_pub` y `mosquitto_sub` contra el contenedor |
 
 ### 3.2 Un solo hilo, muchas conexiones
@@ -53,6 +53,8 @@ bytes 2 a 5:   longitud restante, 7 bits por byte; el bit alto indica que sigue 
 ```
 
 Ejemplo: 321 se escribe `0xC1 0x02` (65 + 2 × 128). Las cadenas van con su largo en 2 bytes. Un paquete de más de 256 KB o mal formado cierra la conexión.
+
+El broker no lee byte a byte. Cada `read` trae hasta 64 KB a un búfer, y `extraer` (`paquetes.py`) separa de ahí todos los paquetes completos sin volver a esperar al socket. Lo que queda a medias espera la siguiente lectura. Así, con carga, una sola lectura procesa decenas de paquetes, y no importa si un paquete llega partido o si varios vienen juntos. El `drain()` de salida solo se espera cuando el búfer del cliente pasa de 256 KB.
 
 ### 3.4 Vida de una conexión
 
@@ -79,7 +81,10 @@ Sesión (máximo 1,5 × keepalive entre paquetes)
 
 ### 3.5 Enrutamiento y temas
 
-Cada PUBLISH se codifica una vez y se envía, una sola vez, a cada cliente con algún filtro que coincida.
+Cada PUBLISH se reenvía con el mismo cuerpo que llegó (tema y carga), sin volver a codificar el tema, y una sola vez a cada cliente con algún filtro que coincida.
+
+- **Rutas guardadas:** la primera vez que llega un tema, el broker calcula qué clientes lo reciben y lo guarda en `rutas`. Los siguientes PUBLISH de ese tema van directo a esa lista. La tabla se vacía cuando alguien se suscribe, se desuscribe o se desconecta con suscripciones.
+- **Permisos guardados:** cada cliente recuerda qué temas ya validó contra la ACL (hasta 256), así que un monitor que publica siempre en su tema no vuelve a pasar por la ACL.
 
 - `+` reemplaza un nivel: `telemetria/+/lecturas` coincide con `telemetria/F8B3B72BFC24/lecturas`.
 - `#` reemplaza el resto: `telemetria/#` coincide con `telemetria` y con `telemetria/x/y`.
@@ -97,10 +102,12 @@ Cada PUBLISH se codifica una vez y se envía, una sola vez, a cada cliente con a
 INFO    Broker TeleMon escuchando en el puerto 1883 (MQTT 3.1.1, QoS 0)
 INFO    Conectado nodered desde 172.19.0.4:35894 como nodered
 INFO    SUBSCRIBE nodered → telemetria/+/lecturas
-INFO    PUBLISH F8B3B72BFC24 → telemetria/F8B3B72BFC24/lecturas (150 bytes, 1 entregas)
+INFO    Últimos 60 s: 12 PUBLISH, 12 entregas, 2 clientes conectados
 WARNING CONNECT rechazado desde 172.19.0.4:35904 (código 4): AABBCCDDEEFF: usuario o clave incorrectos
 INFO    Desconectado F8B3B72BFC24 (172.19.0.5:50462): keepalive vencido
 ```
+
+Cada PUBLISH se anota solo con `BROKER_LOG=DEBUG` (`PUBLISH F8B3B72BFC24 → telemetria/F8B3B72BFC24/lecturas (150 bytes, 1 entregas)`). En `INFO` queda un resumen cada `BROKER_RESUMEN_S` segundos, solo si hubo publicaciones. Escribir una línea por mensaje era lo que más frenaba al broker con carga (ver [la comparativa](../docs/comparativa-brokers.md)).
 
 ### 3.8 ACL por monitor
 
@@ -127,7 +134,7 @@ ESP32 ──wss://mqtt2.telemon.site──► Cloudflare ──túnel──► c
 
 1. **Saludo:** el cliente manda un `GET` con `Upgrade: websocket` y `Sec-WebSocket-Key`. El broker responde `101 Switching Protocols` con `Sec-WebSocket-Accept` = base64(SHA-1(clave + GUID del RFC)) y el subprotocolo `mqtt`. Cualquier otro pedido recibe `400`.
 2. **Tramas:** las del cliente llegan enmascaradas y el broker les quita la máscara; las del broker van sin máscara. Un `ping` se responde con `pong`, un `close` con `close`, y una trama de texto cierra la conexión (MQTT va en tramas binarias).
-3. **Mismo código de sesión:** `LectorWS` junta los datos de las tramas binarias y entrega bytes con `readexactly`, igual que un socket TCP. Por eso `conectar`, `sesion` y la ACL son los mismos para los dos puertos, y no importa si un paquete MQTT llega partido en varias tramas o si varios paquetes vienen en una.
+3. **Mismo código de sesión:** `LectorWS` junta los datos de las tramas binarias y entrega bytes con `read`, igual que un socket TCP. Por eso `conectar`, `sesion` y la ACL son los mismos para los dos puertos, y no importa si un paquete MQTT llega partido en varias tramas o si varios paquetes vienen en una.
 4. **IP real:** detrás del túnel todas las conexiones vienen de `cloudflared`, así que el log usa la cabecera `Cf-Connecting-Ip`.
 
 ## 4. Cómo usarlo
@@ -138,7 +145,8 @@ ESP32 ──wss://mqtt2.telemon.site──► Cloudflare ──túnel──► c
 | `BROKER_USERS` | `usuario:clave,usuario:clave` | Los de `MQTT_USER_*` y `MQTT_PASS_*` |
 | `BROKER_ACL` | `usuario:accion:patron,…` | Las mismas reglas que Mosquitto |
 | `BROKER_PROPIO_PORT` | Puerto MQTT en tu compu | `1884` |
-| `BROKER_LOG` | `DEBUG`, `INFO`, `WARNING` | `INFO` |
+| `BROKER_LOG` | `DEBUG` (cada PUBLISH), `INFO`, `WARNING` | `INFO` |
+| `BROKER_RESUMEN_S` | Cada cuántos segundos se resume la actividad en el log (`0` lo apaga) | `60` |
 
 ```bash
 docker compose up -d --build broker_propio
