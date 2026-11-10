@@ -44,6 +44,47 @@ async def leer_paquete(lector):
     return primero >> 4, primero & 0x0F, cuerpo
 
 
+def extraer(buffer, pos=0):
+    total = len(buffer)
+    i = pos + 1
+    valor = 0
+    multiplicador = 1
+    while True:
+        if i >= total:
+            return None
+        byte = buffer[i]
+        i += 1
+        valor += (byte & 0x7F) * multiplicador
+        if not byte & 0x80:
+            break
+        if i - pos > 4:
+            raise ErrorProtocolo("longitud restante de más de 4 bytes")
+        multiplicador *= 128
+    if valor > TAMANO_MAXIMO:
+        raise ErrorProtocolo(f"paquete de {valor} bytes supera el máximo de {TAMANO_MAXIMO}")
+    fin = i + valor
+    if fin > total:
+        return None
+    primero = buffer[pos]
+    return primero >> 4, primero & 0x0F, bytes(memoryview(buffer)[i:fin]), fin
+
+
+def tema_de_publish(cuerpo):
+    if len(cuerpo) < 2:
+        raise ErrorProtocolo("paquete incompleto")
+    largo = (cuerpo[0] << 8) | cuerpo[1]
+    if 2 + largo > len(cuerpo):
+        raise ErrorProtocolo("paquete incompleto")
+    try:
+        return cuerpo[2:2 + largo].decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ErrorProtocolo("cadena que no es UTF-8") from error
+
+
+def reenviar_publish(cuerpo):
+    return bytes([PUBLISH << 4]) + codificar_longitud(len(cuerpo)) + cuerpo
+
+
 def codificar_longitud(n):
     salida = bytearray()
     while True:

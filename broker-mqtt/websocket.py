@@ -127,6 +127,13 @@ class LectorWS:
         self.escritor = escritor
         self.pendiente = bytearray()
 
+    async def read(self, n=-1):
+        while not self.pendiente:
+            await self.siguiente_trama()
+        datos = bytes(self.pendiente)
+        self.pendiente.clear()
+        return datos
+
     async def readexactly(self, n):
         while len(self.pendiente) < n:
             await self.siguiente_trama()
@@ -154,6 +161,10 @@ class EscritorWS:
     def __init__(self, escritor, origen=None):
         self.escritor = escritor
         self.origen = origen
+
+    @property
+    def transport(self):
+        return self.escritor.transport
 
     def write(self, datos):
         self.escritor.write(trama(BINARIA, datos))
