@@ -4,6 +4,7 @@ import unittest
 
 import broker as modulo
 import paquetes as p
+from acl import leer_acl
 from usuarios import leer_usuarios
 
 
@@ -202,6 +203,63 @@ class PruebasBroker(unittest.IsolatedAsyncioTestCase):
         c = await self.nuevo("")
         self.assertEqual((await c.recibir())[2], b"\x00\x00")
         self.assertTrue(any(i.startswith("auto-") for i in self.broker.clientes))
+
+
+class PruebasBrokerConAcl(unittest.IsolatedAsyncioTestCase):
+    async def asyncSetUp(self):
+        logging.getLogger("broker").setLevel(logging.CRITICAL)
+        reglas = leer_acl("esp32:write:telemetria/%c/lecturas,nodered:read:telemetria/#")
+        self.broker = modulo.Broker(leer_usuarios("esp32:secreto,nodered:otra"), reglas)
+        await self.broker.iniciar("127.0.0.1", 0)
+        self.puerto = self.broker.puerto()
+        self.clientes = []
+
+    async def asyncTearDown(self):
+        for c in self.clientes:
+            await c.cerrar()
+        await self.broker.detener()
+
+    async def nuevo(self, *args, **kwargs):
+        cliente = await ClientePrueba.conectar(self.puerto, *args, **kwargs)
+        self.clientes.append(cliente)
+        await cliente.recibir()
+        return cliente
+
+    async def test_monitor_publica_en_su_tema(self):
+        oyente = await self.nuevo("nodered", usuario="nodered", clave="otra")
+        self.assertEqual((await oyente.suscribir("telemetria/+/lecturas"))[2], b"\x00\x01\x00")
+        nodo = await self.nuevo("F8B3B72BFC24")
+        await nodo.publicar("telemetria/F8B3B72BFC24/lecturas", b"propio")
+        _, _, cuerpo = await oyente.recibir()
+        self.assertEqual(p.decodificar_publish(0, cuerpo)[2], b"propio")
+
+    async def test_monitor_no_publica_en_el_tema_de_otro(self):
+        oyente = await self.nuevo("nodered", usuario="nodered", clave="otra")
+        await oyente.suscribir("telemetria/#")
+        nodo = await self.nuevo("F8B3B72BFC24")
+        await nodo.publicar("telemetria/AAAAAAAAAAAA/lecturas", b"suplantado")
+        await nodo.publicar("telemetria/F8B3B72BFC24/lecturas", b"propio")
+        _, _, cuerpo = await oyente.recibir()
+        self.assertEqual(p.decodificar_publish(0, cuerpo)[2], b"propio")
+        self.assertIn("F8B3B72BFC24", self.broker.clientes)
+
+    async def test_monitor_no_puede_suscribirse(self):
+        nodo = await self.nuevo("F8B3B72BFC24")
+        _, _, cuerpo = await nodo.suscribir("telemetria/#", "telemetria/F8B3B72BFC24/lecturas")
+        self.assertEqual(cuerpo, b"\x00\x01\x80\x80")
+
+    async def test_nodered_no_puede_publicar(self):
+        oyente = await self.nuevo("oyente", usuario="nodered", clave="otra")
+        await oyente.suscribir("telemetria/#")
+        intruso = await self.nuevo("nodered", usuario="nodered", clave="otra")
+        await intruso.publicar("telemetria/X/lecturas", b"x")
+        with self.assertRaises(asyncio.TimeoutError):
+            await oyente.recibir(espera=0.5)
+
+    async def test_nodered_no_puede_suscribirse_fuera_de_telemetria(self):
+        oyente = await self.nuevo("nodered", usuario="nodered", clave="otra")
+        _, _, cuerpo = await oyente.suscribir("#", "telemetria/+/lecturas")
+        self.assertEqual(cuerpo, b"\x00\x01\x80\x00")
 
 
 if __name__ == "__main__":
