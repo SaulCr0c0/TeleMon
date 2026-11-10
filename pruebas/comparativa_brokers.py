@@ -18,12 +18,14 @@ RAIZ = Path(__file__).resolve().parent.parent
 PRUEBAS = RAIZ / "pruebas"
 RED = "telemon-comparativa"
 IMAGEN_PROPIO = "telemon-comparativa-propio"
+IMAGEN_ANTERIOR = "telemon-comparativa-propio-anterior"
 IMAGEN_CLIENTE = "telemon-comparativa-cliente"
 IMAGEN_MOSQUITTO = "eclipse-mosquitto:2"
 IMAGEN_CAPTURA = "nicolaka/netshoot:v0.13"
 
 BROKERS = {
     "mosquitto": {"contenedor": "cmp-mosquitto", "nombre": "Mosquitto"},
+    "propio-anterior": {"contenedor": "cmp-propio-anterior", "nombre": "Broker propio sin optimizar", "log": "INFO"},
     "propio": {"contenedor": "cmp-propio", "nombre": "Broker propio", "log": "INFO"},
     "propio-sin-log": {"contenedor": "cmp-propio-sin-log", "nombre": "Broker propio (log WARNING)", "log": "WARNING"},
 }
@@ -142,19 +144,22 @@ class Recursos:
         }
 
 
-def preparar(env):
+def preparar(env, brokers, anterior):
     docker("network", "rm", RED, verificar=False)
     docker("network", "create", RED)
     docker("pull", "-q", IMAGEN_MOSQUITTO)
     docker("pull", "-q", IMAGEN_CAPTURA)
     docker("build", "-q", "-t", IMAGEN_PROPIO, str(RAIZ / "broker-mqtt"))
+    if "propio-anterior" in brokers:
+        docker("build", "-q", "-t", IMAGEN_ANTERIOR, str(Path(anterior).resolve()))
     docker("build", "-q", "-t", IMAGEN_CLIENTE, "-f", "-", str(PRUEBAS), entrada=CLIENTE_DOCKERFILE)
     acl = f"{env['MQTT_USER_ESP32']}:write:telemetria/%c/lecturas,{env['MQTT_USER_NODERED']}:read:telemetria/#"
     usuarios = (
         f"{env['MQTT_USER_ESP32']}:{env['MQTT_PASS_ESP32']},"
         f"{env['MQTT_USER_NODERED']}:{env['MQTT_PASS_NODERED']}"
     )
-    for clave, broker in BROKERS.items():
+    for clave in brokers:
+        broker = BROKERS[clave]
         docker("rm", "-f", broker["contenedor"], verificar=False)
         if clave == "mosquitto":
             docker(
@@ -166,7 +171,7 @@ def preparar(env):
             docker(
                 "run", "-d", "--name", broker["contenedor"], "--network", RED,
                 "-e", f"BROKER_USERS={usuarios}", "-e", f"BROKER_ACL={acl}", "-e", f"BROKER_LOG={broker['log']}",
-                IMAGEN_PROPIO,
+                IMAGEN_ANTERIOR if clave == "propio-anterior" else IMAGEN_PROPIO,
             )
     time.sleep(3)
 
@@ -178,7 +183,7 @@ def limpiar():
     docker("network", "rm", RED, verificar=False)
 
 
-def correr_carga(env, broker, escenario, salida):
+def correr_carga(env, broker, escenario, salida, nodelay):
     e = ESCENARIOS[escenario]
     salida.unlink(missing_ok=True)
     registro = docker(
@@ -187,14 +192,14 @@ def correr_carga(env, broker, escenario, salida):
         IMAGEN_CLIENTE, "python", "-B", "/pruebas/carga.py",
         "--host", BROKERS[broker]["contenedor"], "--clientes", str(e["clientes"]),
         "--duracion", str(e["duracion"]), "--intervalo", str(e["intervalo"]),
-        "--salida", f"/salida/{salida.name}", verificar=False,
+        "--salida", f"/salida/{salida.name}", *(["--nodelay"] if nodelay else []), verificar=False,
     )
     if not salida.exists():
         raise RuntimeError(f"La carga contra {broker} no terminó:\n{registro}")
     return json.loads(salida.read_text())
 
 
-def medir_corrida(env, broker, escenario, repeticion, carpeta):
+def medir_corrida(env, broker, escenario, repeticion, carpeta, nodelay):
     contenedor = BROKERS[broker]["contenedor"]
     docker("restart", "-t", "2", contenedor)
     time.sleep(3)
@@ -202,7 +207,7 @@ def medir_corrida(env, broker, escenario, repeticion, carpeta):
         time.sleep(5)
     crudo = carpeta / "crudos" / f"{escenario}_{broker}_{repeticion}.json"
     with Recursos(contenedor) as carga:
-        datos = correr_carga(env, broker, escenario, crudo)
+        datos = correr_carga(env, broker, escenario, crudo, nodelay)
     fila = {
         "escenario": escenario, "broker": broker, "repeticion": repeticion,
         "clientes": datos["clientes"], "intervalo_s": datos["intervalo_s"], "duracion_real_s": datos["duracion_real_s"],
@@ -318,6 +323,8 @@ def entorno(carpeta, args):
         "repeticiones": args.repeticiones,
         "escenarios": {k: ESCENARIOS[k] for k in args.escenarios},
         "brokers": args.brokers,
+        "nodelay": args.nodelay,
+        "anterior": args.anterior,
     }
     (carpeta / "entorno.json").write_text(json.dumps(datos, indent=2, ensure_ascii=False), encoding="utf-8")
     return datos
@@ -327,12 +334,16 @@ def main():
     p = argparse.ArgumentParser(description="Comparativa Mosquitto vs. broker propio (#80)")
     p.add_argument("--repeticiones", type=int, default=3)
     p.add_argument("--escenarios", nargs="+", default=list(ESCENARIOS), choices=list(ESCENARIOS))
-    p.add_argument("--brokers", nargs="+", default=list(BROKERS), choices=list(BROKERS))
+    p.add_argument("--brokers", nargs="+", default=["mosquitto", "propio", "propio-sin-log"], choices=list(BROKERS))
     p.add_argument("--salida", default=str(PRUEBAS / "comparativa" / datetime.now().strftime("%Y-%m-%d_%H%M")))
     p.add_argument("--sin-captura", action="store_true")
     p.add_argument("--commit", default="", help="commit del código medido, si la carpeta no es un repositorio git")
     p.add_argument("--duracion", type=float, help="segundos de cada corrida, en lugar de los del escenario")
+    p.add_argument("--anterior", default="", help="carpeta broker-mqtt de otra versión, medida como propio-anterior")
+    p.add_argument("--nodelay", action="store_true", help="el cliente de carga desactiva el algoritmo de Nagle")
     args = p.parse_args()
+    if "propio-anterior" in args.brokers and not args.anterior:
+        p.error("propio-anterior necesita --anterior <carpeta broker-mqtt>")
     if args.duracion:
         for e in ESCENARIOS.values():
             e["duracion"] = args.duracion
@@ -343,14 +354,14 @@ def main():
     filas = []
     try:
         print("Preparando la red y los brokers de prueba...", flush=True)
-        preparar(env)
+        preparar(env, args.brokers, args.anterior)
         datos = entorno(carpeta, args)
         print(f"{datos['cpu']} · {datos['nucleos']} núcleos · {datos['ram_gib']} GiB · {datos['mosquitto']}", flush=True)
         for repeticion in range(1, args.repeticiones + 1):
             orden = args.brokers if repeticion % 2 else list(reversed(args.brokers))
             for escenario in args.escenarios:
                 for broker in orden:
-                    filas.append(medir_corrida(env, broker, escenario, repeticion, carpeta))
+                    filas.append(medir_corrida(env, broker, escenario, repeticion, carpeta, args.nodelay))
                     escribir_csv(carpeta / "corridas.csv", filas)
         resumen = resumir(filas, carpeta)
         if not args.sin_captura:

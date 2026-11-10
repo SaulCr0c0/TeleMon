@@ -5,6 +5,7 @@ import os
 import random
 import re
 import selectors
+import socket
 import statistics
 import sys
 import threading
@@ -21,6 +22,7 @@ def argumentos(argv=None):
     p.add_argument("--intervalo", type=float, default=5, help="segundos entre rondas")
     p.add_argument("--ids", default="", help="IDs de 12 caracteres hexadecimales, separados por coma")
     p.add_argument("--salida", default="", help="archivo JSON con el resumen y las latencias")
+    p.add_argument("--nodelay", action="store_true", help="desactiva el algoritmo de Nagle en los sockets de los clientes")
     a = p.parse_args(argv)
     if not 1 <= a.puerto <= 65535 or a.clientes < 1:
         p.error("El puerto debe estar entre 1 y 65535 y clientes debe ser positivo.")
@@ -197,6 +199,8 @@ def ejecutar(a):
             c.on_subscribe = al_suscribir
         c.connect_timeout = 10
         c.connect(a.host, a.puerto, keepalive=60)
+        if a.nodelay and c.socket() is not None:
+            c.socket().setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
         if not red.esperar(lambda: listo.is_set() or bool(fallos), 10):
             raise RuntimeError(
                 f"El broker no confirmó la conexión de {ident} en 10 segundos "
