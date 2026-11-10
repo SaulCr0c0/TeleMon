@@ -1,6 +1,6 @@
 # cloudflared
 
-Publica la web del server en **https://telemon.site** y **https://www.telemon.site**, y el MQTT sobre WebSocket en **wss://mqtt.telemon.site** (para ESP32 fuera de la red del server), con un **Cloudflare Tunnel** (#78). El server abre una conexión de salida hacia Cloudflare y Cloudflare le manda las visitas por ahí: no hace falta IP pública ni abrir puertos en el módem, y funciona igual en cualquier red (casa, universidad, hotspot). El HTTPS lo pone Cloudflare.
+Publica la web del server en **https://telemon.site** y **https://www.telemon.site**, y el MQTT sobre WebSocket en **wss://mqtt.telemon.site** (Mosquitto) y **wss://mqtt2.telemon.site** (broker propio), para ESP32 fuera de la red del server, con un **Cloudflare Tunnel** (#78). El server abre una conexión de salida hacia Cloudflare y Cloudflare le manda las visitas por ahí: no hace falta IP pública ni abrir puertos en el módem, y funciona igual en cualquier red (casa, universidad, hotspot). El HTTPS lo pone Cloudflare.
 
 ```text
 Navegador ──HTTPS──► Cloudflare (DNS de telemon.site) ══túnel══► cloudflared ──► proxy_web:80 (Nginx) ──► web, /api y /ws
@@ -45,6 +45,7 @@ $CF tunnel login
 $CF tunnel create telemon
 $CF tunnel route dns telemon telemon.site
 $CF tunnel route dns telemon mqtt.telemon.site
+$CF tunnel route dns telemon mqtt2.telemon.site
 $CF tunnel route dns telemon www.telemon.site
 ```
 
