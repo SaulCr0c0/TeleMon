@@ -2307,7 +2307,7 @@
         "id": "3e8d1f2a6b7c9d02",
         "type": "mqtt-broker",
         "name": "Broker TeleMon",
-        "broker": "broker",
+        "broker": "${MQTT_BROKER}",
         "port": "1883",
         "clientid": "nodered",
         "autoConnect": true,

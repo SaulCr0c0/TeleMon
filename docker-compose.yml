@@ -32,7 +32,8 @@ services:
     container_name: broker_propio
     restart: unless-stopped
     environment:
-      BROKER_USERS: ${BROKER_USERS}
+      BROKER_USERS: "${BROKER_USERS:-${MQTT_USER_ESP32}:${MQTT_PASS_ESP32},${MQTT_USER_NODERED}:${MQTT_PASS_NODERED}}"
+      BROKER_ACL: "${BROKER_ACL:-${MQTT_USER_ESP32}:write:telemetria/%c/lecturas,${MQTT_USER_NODERED}:read:telemetria/#}"
       BROKER_LOG: ${BROKER_LOG:-INFO}
     ports:
       - "${BROKER_PROPIO_PORT:-1884}:1883"
@@ -65,6 +66,7 @@ services:
     restart: unless-stopped
     environment:
       TZ: America/La_Paz
+      MQTT_BROKER: ${MQTT_BROKER:-broker}
       MQTT_USER: ${MQTT_USER_NODERED}
       MQTT_PASS: ${MQTT_PASS_NODERED}
       PGHOST: postgres
@@ -78,6 +80,8 @@ services:
       - ./nodered/data:/data
     depends_on:
       broker:
+        condition: service_started
+      broker_propio:
         condition: service_started
       postgres:
         condition: service_healthy
