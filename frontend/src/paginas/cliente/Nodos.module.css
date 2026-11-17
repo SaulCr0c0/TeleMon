@@ -200,3 +200,40 @@
   font-size: 14px;
   color: var(--texto-suave);
 }
+
+.cortes {
+  grid-column: 1 / -1;
+  font-size: 13px;
+  color: var(--texto-suave);
+}
+
+.aire {
+  flex: 1 1 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 16px;
+  margin: 0;
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid var(--borde);
+  min-width: 0;
+}
+
+.aireTitulo {
+  float: left;
+  width: 100%;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.campoCorte {
+  flex: 0 1 160px;
+}
+
+.aireAyuda {
+  flex: 1 1 100%;
+  font-size: 13px;
+  color: var(--texto-suave);
+}

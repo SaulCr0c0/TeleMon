@@ -7,6 +7,14 @@ import Boton from '../../componentes/ui/Boton';
 import Estado from '../../componentes/ui/Estado';
 import Icono from '../../componentes/ui/Icono';
 import useApi from '../../hooks/useApi';
+import {
+  camposCortes,
+  cortesDe,
+  CORTES_POR_DEFECTO,
+  leerCortes,
+  mismosCortes,
+  textoCortes,
+} from '../../utils/cortesAire';
 import { normalizarCodigo } from '../../utils/validacion';
 import estilos from './Nodos.module.css';
 
@@ -72,6 +80,7 @@ function TarjetaNodo({ n, abierto, alAlternar }) {
               </div>
             );
           })}
+          <p className={estilos.cortes}>Calidad del aire: {textoCortes(cortesDe(n))}</p>
         </div>
       )}
     </div>
@@ -111,6 +120,35 @@ function TarjetaEdicion({ n, destinos, alCambiar }) {
       >
         {n.estado === 'desactivado' ? 'Reactivar' : 'Desactivar'}
       </Boton>
+      <fieldset className={estilos.aire}>
+        <legend className={estilos.aireTitulo}>Calidad del aire (Rs/R0)</legend>
+        <label className={`${estilos.campo} ${estilos.campoCorte}`}>
+          Bueno desde
+          <input
+            className={estilos.control}
+            type="text"
+            inputMode="decimal"
+            value={n.aireBueno}
+            placeholder={CORTES_POR_DEFECTO.bueno.toFixed(2)}
+            onChange={(e) => alCambiar({ aireBueno: e.target.value })}
+          />
+        </label>
+        <label className={`${estilos.campo} ${estilos.campoCorte}`}>
+          Moderado desde
+          <input
+            className={estilos.control}
+            type="text"
+            inputMode="decimal"
+            value={n.aireModerado}
+            placeholder={CORTES_POR_DEFECTO.moderado.toFixed(2)}
+            onChange={(e) => alCambiar({ aireModerado: e.target.value })}
+          />
+        </label>
+        <p className={estilos.aireAyuda}>
+          Debajo de «moderado» el nivel es malo. Deja ambos vacíos para usar los valores por defecto
+          (0.80 y 0.50).
+        </p>
+      </fieldset>
     </div>
   );
 }
@@ -227,7 +265,7 @@ export default function Nodos() {
   function empezar() {
     setAviso('');
     setErrorGuardar('');
-    setBorrador((datos?.nodos ?? []).map((n) => ({ ...n, destino: '' })));
+    setBorrador((datos?.nodos ?? []).map((n) => ({ ...n, ...camposCortes(n), destino: '' })));
   }
 
   function cambiar(id, cambios) {
@@ -237,6 +275,16 @@ export default function Nodos() {
   async function guardar() {
     setGuardando(true);
     setErrorGuardar('');
+    const cortes = {};
+    for (const n of borrador) {
+      const leido = leerCortes(n.aireBueno, n.aireModerado);
+      if (leido.error) {
+        setErrorGuardar(`${n.nombre.trim() || 'Nuevo nodo'}: ${leido.error}`);
+        setGuardando(false);
+        return;
+      }
+      cortes[n.id] = leido.cortes;
+    }
     try {
       const originales = Object.fromEntries((datos?.nodos ?? []).map((n) => [n.id, n]));
       const movidos = [];
@@ -247,6 +295,10 @@ export default function Nodos() {
         if (antes && nombre !== antes.nombre) cambios.nombre = nombre;
         if (antes && n.estado !== antes.estado) cambios.estado = n.estado;
         if (n.destino) cambios.ubicacionId = Number(n.destino);
+        const previos = cortesDe(antes);
+        if (antes && !mismosCortes(cortes[n.id], previos.porDefecto ? null : previos)) {
+          cambios.cortesAire = cortes[n.id];
+        }
         if (Object.keys(cambios).length) await api.patch(`/api/dispositivos/${n.id}`, cambios);
         if (n.destino) {
           const u = destinos.find((d) => String(d.id) === String(n.destino));
@@ -266,7 +318,7 @@ export default function Nodos() {
   }
 
   function alAgregar(nodo) {
-    setBorrador((lista) => [...lista, { ...nodo, destino: '' }]);
+    setBorrador((lista) => [...lista, { ...nodo, ...camposCortes(nodo), destino: '' }]);
     reemplazar({
       nodos: [...(datos?.nodos ?? []), nodo],
       reservadosSinActivar: Math.max(0, reservados - 1),

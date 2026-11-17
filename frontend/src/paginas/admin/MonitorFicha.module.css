@@ -265,3 +265,13 @@
   font-size: 13px;
   color: var(--texto-suave);
 }
+
+.cortes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.cortes > * {
+  flex: 1 1 120px;
+}

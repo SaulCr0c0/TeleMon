@@ -173,6 +173,15 @@ export default [
         evento(m, c ? `Reservado para ${c.organizacion}` : 'Reserva quitada');
         delete cambios.clienteId;
       }
+      if ('cortesAire' in cambios) {
+        const c = cambios.cortesAire;
+        evento(
+          m,
+          c
+            ? `Cortes de calidad del aire: bueno ≥ ${c.bueno}, moderado ≥ ${c.moderado}`
+            : 'Cortes de calidad del aire por defecto (bueno ≥ 0.8, moderado ≥ 0.5)',
+        );
+      }
       if ('r0' in cambios) {
         cambios.r0 = Number(cambios.r0);
         evento(m, `R0 del MQ-135 cargado: ${cambios.r0} kΩ`);

@@ -111,4 +111,40 @@ describe('Nodos', () => {
     expect(await screen.findByRole('status')).toHaveTextContent('Biblioteca se movió a Vinto');
     expect(screen.queryByText('Biblioteca')).not.toBeInTheDocument();
   });
+
+  it('cambia los cortes del aire de un nodo y vuelve a los de por defecto', async () => {
+    await editar();
+    const cambiar = vi.spyOn(api, 'patch');
+    const fila = screen.getByDisplayValue('Patio').closest('li');
+    const bueno = within(fila).getByLabelText('Bueno desde');
+    const moderado = within(fila).getByLabelText('Moderado desde');
+    expect(bueno).toHaveValue('');
+    await userEvent.type(bueno, '0,9');
+    await userEvent.type(moderado, '0.6');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(cambiar).toHaveBeenCalledWith(expect.stringMatching(/^\/api\/dispositivos\/\d+$/), {
+      cortesAire: { bueno: 0.9, moderado: 0.6 },
+    });
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Editar' }));
+    const otra = screen.getByDisplayValue('Patio').closest('li');
+    expect(within(otra).getByLabelText('Bueno desde')).toHaveValue('0.9');
+    await userEvent.clear(within(otra).getByLabelText('Bueno desde'));
+    await userEvent.clear(within(otra).getByLabelText('Moderado desde'));
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(cambiar).toHaveBeenLastCalledWith(expect.any(String), { cortesAire: null });
+  });
+
+  it('no guarda cortes del aire inválidos', async () => {
+    await editar();
+    const cambiar = vi.spyOn(api, 'patch');
+    const fila = screen.getByDisplayValue('Patio').closest('li');
+    await userEvent.type(within(fila).getByLabelText('Bueno desde'), '0.5');
+    await userEvent.type(within(fila).getByLabelText('Moderado desde'), '0.7');
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      'Patio: El corte de «moderado» debe ser menor que el de «bueno».',
+    );
+    expect(cambiar).not.toHaveBeenCalled();
+  });
 });
