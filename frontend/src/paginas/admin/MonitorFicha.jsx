@@ -7,6 +7,13 @@ import Boton from '../../componentes/ui/Boton';
 import Campo from '../../componentes/ui/Campo';
 import Estado from '../../componentes/ui/Estado';
 import useApi from '../../hooks/useApi';
+import {
+  camposCortes,
+  cortesDe,
+  CORTES_POR_DEFECTO,
+  leerCortes,
+  textoCortes,
+} from '../../utils/cortesAire';
 import { fechaHora, haceCuanto } from '../../utils/formato';
 import { ESTADOS_MONITOR } from './monitor';
 import estilos from './MonitorFicha.module.css';
@@ -48,6 +55,91 @@ function conexion(m) {
     };
   }
   return { tipo: 'sinMarca', texto: 'Nunca se conectó', detalle: 'Sin lecturas' };
+}
+
+function CortesAire({ monitor, alGuardar }) {
+  const [campos, setCampos] = useState(() => camposCortes(monitor));
+  const [mensaje, setMensaje] = useState('');
+  const [error, setError] = useState('');
+  const [guardando, setGuardando] = useState(false);
+
+  function cambiar(cambios) {
+    setCampos((c) => ({ ...c, ...cambios }));
+    setMensaje('');
+    setError('');
+  }
+
+  async function guardar(cortes) {
+    setGuardando(true);
+    setMensaje('');
+    setError('');
+    try {
+      const nuevo = await alGuardar(cortes);
+      setCampos(camposCortes(nuevo));
+      setMensaje(cortes === null ? 'Vuelve a usar los valores por defecto.' : 'Cortes guardados.');
+    } catch (e) {
+      setError(e.message || 'No se pudieron guardar los cortes.');
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  return (
+    <section className={estilos.tarjeta}>
+      <h2 className={estilos.subtitulo}>Calidad del aire</h2>
+      <p className={estilos.textoSuave}>Ahora: {textoCortes(cortesDe(monitor))}</p>
+      <div className={estilos.cortes}>
+        <Campo
+          etiqueta="Bueno desde (Rs/R0)"
+          inputMode="decimal"
+          value={campos.aireBueno}
+          placeholder={CORTES_POR_DEFECTO.bueno.toFixed(2)}
+          disabled={guardando}
+          onChange={(e) => cambiar({ aireBueno: e.target.value })}
+        />
+        <Campo
+          etiqueta="Moderado desde (Rs/R0)"
+          inputMode="decimal"
+          value={campos.aireModerado}
+          placeholder={CORTES_POR_DEFECTO.moderado.toFixed(2)}
+          disabled={guardando}
+          onChange={(e) => cambiar({ aireModerado: e.target.value })}
+        />
+      </div>
+      <p className={estilos.textoSuave}>
+        Debajo de «moderado» el nivel es malo. El cliente también puede cambiarlos.
+      </p>
+      <div className={estilos.botones}>
+        <Boton
+          variante="primario"
+          deshabilitado={guardando}
+          onClick={() => {
+            const leido = leerCortes(campos.aireBueno, campos.aireModerado);
+            if (leido.error) setError(leido.error);
+            else guardar(leido.cortes);
+          }}
+        >
+          Guardar
+        </Boton>
+        <Boton
+          deshabilitado={guardando || cortesDe(monitor).porDefecto}
+          onClick={() => guardar(null)}
+        >
+          Usar por defecto
+        </Boton>
+      </div>
+      {mensaje && (
+        <span role="status" className={estilos.mensaje}>
+          {mensaje}
+        </span>
+      )}
+      {error && (
+        <span role="alert" className={estilos.error}>
+          {error}
+        </span>
+      )}
+    </section>
+  );
 }
 
 function CicloDeVida({ monitor, clientes, alReservar, alLiberar, alRetirar }) {
@@ -276,6 +368,14 @@ export default function MonitorFicha() {
                   <dd>{m.nodo ?? '—'}</dd>
                 </dl>
               </section>
+
+              <CortesAire
+                monitor={m}
+                alGuardar={async (cortesAire) => {
+                  await api.patch(ruta, { cortesAire });
+                  return recargar();
+                }}
+              />
 
               <CicloDeVida
                 monitor={m}

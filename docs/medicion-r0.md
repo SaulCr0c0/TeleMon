@@ -1,6 +1,6 @@
 # Medición del R0 del MQ-135 (#37, HU-28)
 
-El backend calcula Rs/R0 y el nivel del aire (bueno ≥ 0,80, moderado ≥ 0,50, malo) con el R0 de cada monitor. Mientras la ficha no tenga R0, `rs_r0` y `nivel_aire` llegan vacíos. R0 es la resistencia del sensor en aire limpio, distinta en cada MQ-135, y se mide una vez por monitor.
+El backend calcula Rs/R0 y el nivel del aire (por defecto bueno ≥ 0,80, moderado ≥ 0,50, malo) con el R0 de cada monitor. Los cortes de cada monitor se pueden cambiar: el cliente en «Gestionar nodos» → Editar y el admin en la ficha del monitor (tarjeta «Calidad del aire»); si se dejan vacíos se usan los valores por defecto. Mientras la ficha no tenga R0, `rs_r0` y `nivel_aire` llegan vacíos. R0 es la resistencia del sensor en aire limpio, distinta en cada MQ-135, y se mide una vez por monitor.
 
 ## Condiciones
 

@@ -53,4 +53,29 @@ describe('MonitorFicha', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Sin cliente. Resérvalo para quien lo contrate.')).toBeInTheDocument();
   });
+
+  it('guarda los cortes del aire del monitor y vuelve a los de por defecto', async () => {
+    await abrir(1);
+    const tarjeta = screen.getByRole('heading', { name: 'Calidad del aire' }).closest('section');
+    expect(tarjeta).toHaveTextContent('bueno ≥ 0.80 · moderado ≥ 0.50 (por defecto)');
+    await userEvent.type(within(tarjeta).getByLabelText('Bueno desde (Rs/R0)'), '0.5');
+    await userEvent.type(within(tarjeta).getByLabelText('Moderado desde (Rs/R0)'), '0.6');
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Guardar' }));
+    expect(within(tarjeta).getByRole('alert')).toHaveTextContent('debe ser menor');
+
+    await userEvent.clear(within(tarjeta).getByLabelText('Bueno desde (Rs/R0)'));
+    await userEvent.type(within(tarjeta).getByLabelText('Bueno desde (Rs/R0)'), '0.9');
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Guardar' }));
+    expect(await within(tarjeta).findByText('Cortes guardados.')).toBeInTheDocument();
+    expect(tarjeta).toHaveTextContent('bueno ≥ 0.90 · moderado ≥ 0.60');
+    expect(
+      screen.getByText('Cortes de calidad del aire: bueno ≥ 0.9, moderado ≥ 0.6'),
+    ).toBeInTheDocument();
+
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Usar por defecto' }));
+    expect(
+      await within(tarjeta).findByText('Vuelve a usar los valores por defecto.'),
+    ).toBeInTheDocument();
+    expect(within(tarjeta).getByLabelText('Bueno desde (Rs/R0)')).toHaveValue('');
+  });
 });
