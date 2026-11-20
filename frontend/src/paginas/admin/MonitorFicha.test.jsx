@@ -36,9 +36,16 @@ describe('MonitorFicha', () => {
     await abrir(7);
     await userEvent.click(screen.getByRole('button', { name: 'Reservar' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Elige un cliente.');
-    await userEvent.selectOptions(screen.getByLabelText('Reservar para'), 'Vivero Los Andes');
+    await userEvent.selectOptions(
+      screen.getByLabelText('Reservar para'),
+      'Vivero Los Andes · contacto@viveroandes.com',
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Reservar' }));
-    expect(await screen.findByText(/Reservado para Vivero Los Andes. Lo verá/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        /Reservado para Vivero Los Andes \(contacto@viveroandes.com\). Lo verá/,
+      ),
+    ).toBeInTheDocument();
     const asignacion = screen.getByRole('heading', { name: 'Asignación' }).closest('section');
     expect(within(asignacion).getByText('Vivero Los Andes')).toBeInTheDocument();
   });

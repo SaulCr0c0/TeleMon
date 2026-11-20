@@ -101,7 +101,7 @@ function FormularioRegistro({ clientes, alCancelar, alRegistrar }) {
             { valor: '', texto: 'No reservar todavía' },
             ...(clientes ?? [])
               .filter((c) => c.estado !== 'suspendida')
-              .map((c) => ({ valor: String(c.id), texto: c.organizacion })),
+              .map((c) => ({ valor: String(c.id), texto: `${c.organizacion} · ${c.email}` })),
           ]}
         />
       </div>

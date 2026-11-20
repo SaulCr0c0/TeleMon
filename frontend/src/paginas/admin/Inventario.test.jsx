@@ -59,7 +59,10 @@ describe('Inventario', () => {
   it('registra, reserva y muestra la etiqueta con el código', async () => {
     await abrirRegistro();
     await userEvent.type(screen.getByLabelText('MAC del monitor'), 'a4:cf:12:00:11:22');
-    await userEvent.selectOptions(screen.getByLabelText('Reservar para'), 'Cooperativa San Pedro');
+    await userEvent.selectOptions(
+      screen.getByLabelText('Reservar para'),
+      'Cooperativa San Pedro · gerencia@coopsanpedro.bo',
+    );
     await userEvent.click(screen.getByRole('button', { name: 'Registrar y generar código' }));
     const aviso = await screen.findByRole('status');
     expect(within(aviso).getByText('Monitor registrado')).toBeInTheDocument();
