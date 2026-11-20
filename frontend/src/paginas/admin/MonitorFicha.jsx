@@ -176,7 +176,7 @@ function CicloDeVida({ monitor, clientes, alReservar, alLiberar, alRetirar }) {
               { valor: '', texto: 'Elige un cliente' },
               ...(clientes ?? [])
                 .filter((c) => c.estado !== 'suspendida')
-                .map((c) => ({ valor: String(c.id), texto: c.organizacion })),
+                .map((c) => ({ valor: String(c.id), texto: `${c.organizacion} · ${c.email}` })),
             ]}
           />
           <Boton
@@ -383,7 +383,7 @@ export default function MonitorFicha() {
                 alReservar={async (clienteId) => {
                   await actualizar({ clienteId });
                   const c = clientes.find((x) => x.id === clienteId);
-                  return `Reservado para ${c.organizacion}. Lo verá en «Gestionar nodos».`;
+                  return `Reservado para ${c.organizacion} (${c.email}). Lo verá en «Gestionar nodos».`;
                 }}
                 alLiberar={async () => {
                   await api.post(`${ruta}/liberar`);
