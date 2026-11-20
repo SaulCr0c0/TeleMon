@@ -24,7 +24,17 @@ function validarNombre(nombre) {
 }
 
 export default [
-  ['GET', '/api/ubicaciones', () => UBICACIONES.filter((u) => !u.archivada).map(resumen)],
+  [
+    'GET',
+    '/api/ubicaciones',
+    (_p, _c, { archivadas }) => {
+      if (archivadas !== undefined && archivadas !== '1') {
+        throw new ErrorApi(400, 'El filtro archivadas solo admite el valor 1.');
+      }
+      const quiereArchivadas = archivadas === '1';
+      return UBICACIONES.filter((u) => Boolean(u.archivada) === quiereArchivadas).map(resumen);
+    },
+  ],
   ['GET', '/api/ubicaciones/:id', ({ id }) => resumen(buscar(id))],
   [
     'POST',

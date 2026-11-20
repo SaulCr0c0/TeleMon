@@ -89,8 +89,39 @@ function TarjetaEdicion({ u, alCambiar }) {
   );
 }
 
+function Archivadas({ lista, restaurando, alDesarchivar }) {
+  if (!lista.length) return null;
+  return (
+    <details className={estilos.archivadas}>
+      <summary className={estilos.archivadasTitulo}>Archivadas ({lista.length})</summary>
+      <p className={estilos.archivadasNota}>
+        No aparecen en tu panel ni reciben nodos nuevos. Su historial se conserva.
+      </p>
+      <ul className={estilos.archivadasLista}>
+        {lista.map((u) => (
+          <li key={u.id} className={estilos.archivada}>
+            <span className={estilos.textos}>
+              {u.localidad && <span className={estilos.localidad}>{u.localidad}</span>}
+              <span className={estilos.nombre}>{u.nombre}</span>
+            </span>
+            <Boton
+              onClick={() => alDesarchivar(u)}
+              deshabilitado={restaurando !== null}
+              className={estilos.archivoBoton}
+            >
+              {restaurando === u.id ? 'Desarchivando…' : 'Desarchivar'}
+            </Boton>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
 export default function Ubicaciones() {
   const { datos, cargando, error, reemplazar } = useApi('/api/ubicaciones');
+  const archivadasApi = useApi('/api/ubicaciones?archivadas=1');
+  const [restaurando, setRestaurando] = useState(null);
   const [borrador, setBorrador] = useState(null);
   const [aviso, setAviso] = useState('');
   const [errorGuardar, setErrorGuardar] = useState('');
@@ -153,6 +184,7 @@ export default function Ubicaciones() {
         }
       }
       reemplazar(await api.get('/api/ubicaciones'));
+      if (archivadas.length) archivadasApi.recargar();
       setAviso(
         archivadas.length
           ? `Ubicación archivada: ${archivadas.join(', ')}. Su historial se conserva.`
@@ -163,6 +195,22 @@ export default function Ubicaciones() {
       setErrorGuardar(e.message || 'No se pudieron guardar los cambios.');
     } finally {
       setGuardando(false);
+    }
+  }
+
+  async function desarchivar(u) {
+    setRestaurando(u.id);
+    setAviso('');
+    setErrorGuardar('');
+    try {
+      await api.patch(`/api/ubicaciones/${u.id}`, { archivada: false });
+      reemplazar(await api.get('/api/ubicaciones'));
+      archivadasApi.recargar();
+      setAviso(`Ubicación desarchivada: ${u.nombre}. Vuelve a aparecer con su historial.`);
+    } catch (e) {
+      setErrorGuardar(e.message || 'No se pudo desarchivar la ubicación.');
+    } finally {
+      setRestaurando(null);
     }
   }
 
@@ -229,6 +277,14 @@ export default function Ubicaciones() {
           </button>
         )}
       </div>
+
+      {!editando && (
+        <Archivadas
+          lista={archivadasApi.datos ?? []}
+          restaurando={restaurando}
+          alDesarchivar={desarchivar}
+        />
+      )}
     </>
   );
 }

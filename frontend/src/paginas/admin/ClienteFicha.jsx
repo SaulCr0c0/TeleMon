@@ -325,7 +325,14 @@ export default function ClienteFicha() {
                     <tbody>
                       {cliente.listaUbicaciones.map((u) => (
                         <tr key={u.id}>
-                          <th scope="row">{u.nombre}</th>
+                          <th scope="row">
+                            {u.nombre}
+                            {u.archivada && (
+                              <span className={estilos.archivada}>
+                                <Estado tipo="apagado">Archivada</Estado>
+                              </span>
+                            )}
+                          </th>
                           <td>{u.localidad || '—'}</td>
                           <td className={`${tabla.derecha} mono`}>{u.nodos}</td>
                         </tr>
