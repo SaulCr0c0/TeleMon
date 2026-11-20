@@ -98,6 +98,29 @@ describe('Ubicaciones', () => {
     expect(screen.queryByRole('link', { name: /Escuela Avaroa/ })).not.toBeInTheDocument();
   });
 
+  it('muestra las archivadas y permite desarchivarlas', async () => {
+    dibujar(<Ubicaciones />, { usuario });
+    await editar();
+    const tarjeta = screen
+      .getByDisplayValue('Escuela Adela Zamudio')
+      .closest('label').parentElement;
+    await userEvent.click(within(tarjeta).getByRole('button', { name: 'Archivar' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar cambios' }));
+    await screen.findByRole('status');
+    expect(screen.queryByRole('link', { name: /Adela Zamudio/ })).not.toBeInTheDocument();
+
+    const titulo = await screen.findByText(/^Archivadas \(/);
+    await userEvent.click(titulo);
+    const fila = (
+      await within(titulo.closest('details')).findByText('Escuela Adela Zamudio')
+    ).closest('li');
+    const cambiar = vi.spyOn(api, 'patch');
+    await userEvent.click(within(fila).getByRole('button', { name: 'Desarchivar' }));
+    expect(cambiar).toHaveBeenCalledWith('/api/ubicaciones/1', { archivada: false });
+    expect(await screen.findByRole('link', { name: /Adela Zamudio/ })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Ubicación desarchivada');
+  });
+
   it('cancelar descarta los cambios', async () => {
     dibujar(<Ubicaciones />, { usuario });
     await editar();
